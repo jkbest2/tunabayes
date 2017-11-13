@@ -1,0 +1,43 @@
+---
+title: "Notes on "BUGS in Bayesian Stock Assessment""
+author: "John Best"
+date: "November 13, 2017"
+output: pdf_document
+---
+
+The authors present the use of the original BUGS for performing Bayesian inference on a state-space biomass model. The start with the basics of the model specification, and move to the mechanics of BUGS, and finally illustrate using a data set of South Atlantic Albacore. They specify a Schaefer biomass dynamics model
+
+$$B_t = B_{t-1} + r B_{t-1} \left(1 - \frac{B_{t-1}}{K}\right) - C_{t-1}.$$
+
+They also specify that the relative index $I_t$ (CPUE in this case), is proportional to biomass by catchability, $q$:
+
+$$I_t = q B_t.$$
+
+They reparameterize these equations by letting $P_t = B_t / K$, and specify a log-normal multiplicative observation error in $I_t$, giving state equations
+
+$$\begin{aligned}
+P_1 \mid \sigma^2 &= e^{u_1}\\
+P_t \mid P_{t-1},K,r,\sigma^2 &= \left[P_{t-1} + r P_{t-1}(1 - P_{t-1}) - C_{t-1} / K\right]e^{u_t} &t = 2, \ldots, N\\
+u_t &\sim \operatorname{Normal}(0, \sigma^2),
+\end{aligned}$$
+
+and observation equations
+
+$$\begin{aligned}
+I_t \mid P_t,q,\tau^2 &= q K P_t e^{v_t}\\
+v_t $\sim \operatorname{Normal}(0, \tau^2).
+\end{aligned}$$
+
+They then set priors on the five parameters. Some are based on information from similar species. Catchability, $q$, is clearly meant to be uninformative.
+
+$$\begin{aligned}
+K &\sim \operatorname{log Normal}(5.04, 0.5162^2)\\
+r &\sim \operatorname{log Normal}(-1.38, 0.51^2)\\
+p(q) &\propto 1/q\\
+\sigma^2 &\sim \operatorname{Inverse Gamma}(3.79, 0.0102)\\
+\tau^2 &\sim \operatorname{Inverse Gamma}(1.71, 0.0086).
+\end{aligned}$$
+
+It is not entirely clear what the parameterization of the log-normal distributions are in this case, but the means at least must be on the log-scale, as an $r < 0$ would lead to rapid extinction of the population. The listed variances are then likely to be CVs, as seems to be common.
+
+The coded truncations of the priors were apparently meant to give them log-concave distributions to enable use of the adaptive rejection sampler, and were unnecessary in later versions of BUGS (WinBUGS was mentioned), as they have Metropolis-Hastings samplers available.

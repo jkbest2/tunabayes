@@ -1,5 +1,5 @@
 ---
-title: "Notes on "BUGS in Bayesian Stock Assessment""
+title: "Notes on 'BUGS in Bayesian Stock Assessment'"
 author: "John Best"
 date: "November 13, 2017"
 output: pdf_document
@@ -25,7 +25,7 @@ and observation equations
 
 $$\begin{aligned}
 I_t \mid P_t,q,\tau^2 &= q K P_t e^{v_t}\\
-v_t $\sim \operatorname{Normal}(0, \tau^2).
+v_t &\sim \operatorname{Normal}(0, \tau^2).
 \end{aligned}$$
 
 They then set priors on the five parameters. Some are based on information from similar species. Catchability, $q$, is clearly meant to be uninformative.

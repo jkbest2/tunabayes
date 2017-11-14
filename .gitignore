@@ -29,4 +29,9 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 # End of https://www.gitignore.io/api/r
+
 docs
+*.pdf
+*.ppt*
+*.doc*
+*.html

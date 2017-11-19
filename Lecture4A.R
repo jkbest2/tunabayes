@@ -2,9 +2,9 @@ library(runjags)
 
 
 model <- "model {
- for(i in 1 : N){ 
- Y[i] ~ dnorm(true.y[i], precision) 
- true.y[i] <- (coef * X[i]) + int 
+ for(i in 1 : N){
+ Y[i] ~ dnorm(true.y[i], precision)
+ true.y[i] <- (coef * X[i]) + int
  }
  coef ~ dunif(-1000,1000)
  int ~ dunif(-1000,1000)
@@ -35,10 +35,14 @@ inits <- list(inits1,inits2,inits3,inits4,inits5)
 Y[3] <- NA
 Y[5] <- NA
 
-results <- run.jags(model=model, monitor=c("coef", "int", "precision","sigma"), 
-         data=data, n.chains=5, method="rjags", inits=inits,plots=T,monitor.deviance=T,
+results <- run.jags(model=model,
+                    monitor=c("coef", "int", "precision","sigma"),
+                    data=data, n.chains=5,
+                    method="rjags",
+                    inits=inits,
+                    plots=T, monitor.deviance=T,
          silent.jag=T)
-         
+
 print(results)
 plot(results, layout = runjags.getOption("plot.layout"),
      new.windows = runjags.getOption("new.windows"), file = "testjags.pdf")

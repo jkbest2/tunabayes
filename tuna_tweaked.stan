@@ -33,19 +33,19 @@ model {
 
     // Set initial state
     Pmed[1] = 1;
-    P[1] ~ lognormal(Pmed[1], sigma);
+  P[1] ~ lognormal(log(Pmed[1]), sigma);
 
     // time steps of the model
     for (t in 2:N) {
         Pmed[t] = fmax(P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) - C[t - 1] / K, 0.001);
         // Pmed[t] = P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) - C[t - 1] / K;
-        P[t] ~ lognormal(Pmed[t], sigma);
+        P[t] ~ lognormal(log(Pmed[t]), sigma);
      }
 
     // Likelihood
     for (t in 1:N) {
         Imed[t] = q * K * P[t];
-        I[t] ~ lognormal(Imed[t], tau);
+        I[t] ~ lognormal(log(Imed[t]), tau);
     }
 }
 
@@ -59,7 +59,7 @@ generated quantities {
     //posterior predictions (hint, the parameterization of dlnorm is not the same as in R)
     for (t in 1:N) {
         Imed[t] = q * K * P[t];
-        Ipred[t] = lognormal_rng(Imed[t], tau);
+        Ipred[t] = lognormal_rng(log(Imed[t]), tau);
         Biomass[t] = K*P[t];
     }
 

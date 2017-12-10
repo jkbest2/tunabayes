@@ -37,7 +37,11 @@ inits2 <- list(r = 0.5, K = 300, iq = 0.8, isigma2 = 200, itau2 = 200,
                P = c(0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99,
                      0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99,
                      0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99))
-inits <- list(inits1, inits2)
+inits3 <- list(r = 0.15, K = 90, iq = 0.7, isigma2 = 200, itau2 = 200,
+               P = rep(0.75, N))
+inits4 <- list(r = 0.25, K = 200, iq = 0.5, isigma2 = 200, itau2 = 200,
+               P = rep(0.9, N))
+inits <- list(inits1, inits1, inits1, inits1)#, inits3, inits4)
 
 inits11 <- list(r = 0.8, K = 200, q = 2.0, sigma2 = 1e-2, tau2 = 1e-2,
                 P = c(0.99, 0.98, 0.96, 0.94, 0.92, 0.90, 0.88, 0.86,

@@ -41,11 +41,11 @@ transformed parameters {
 
 model {
     // Priors
-    r ~ lognormal(-1.38, 0.51);
-    sigma2 ~ inv_gamma(3.785, 0.0102);
-    tau2 ~ inv_gamma(1.709, 0.00861);
-    target += 1 / q;
-    K ~ lognormal(5.0429, 0.5162);
+    K ~ lognormal(5.042905, 1 / sqrt(3.7603664));
+    r ~ lognormal(-1.38, 1 / sqrt(3.845));
+    sigma2 ~ inv_gamma(3.785518, 0.010223);
+    tau2 ~ inv_gamma(1.708603, 0.008613854);
+    target += -log(q);
 
     u ~ normal(0, 1);
 

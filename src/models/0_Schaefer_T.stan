@@ -26,11 +26,11 @@ model {
     vector[N] Pmed;
     vector[N] Imed;
 
-    r ~ lognormal(-1.38,3.845) T[0.01,1.2];
-    isigma2 ~ gamma(3.785, 0.0102);
-    itau2 ~ gamma(1.709, 0.0861);
-    iq ~ gamma(0.001,0.001) T[0.5,100];
-    K ~ lognormal(5.0429, 3.7603) T[10,1000];
+    r ~ lognormal(-1.38, 1 / sqrt(3.845)) T[0.01, 1.2];
+    isigma2 ~ gamma(3.785518, 0.010223);
+    itau2 ~ gamma(1.708603, 0.008613854);
+    iq ~ gamma(0.001, 0.001) T[0.5,100];
+    K ~ lognormal(5.042905, 1 / sqrt(3.7603664)) T[10, 1000];
 
     // Set initial state
     Pmed[1] = 0;
@@ -39,7 +39,8 @@ model {
     // time steps of the model
     for (t in 2:N)
     {
-        Pmed[t] = log(fmax(P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) - C[t - 1] / K,
+        Pmed[t] = log(fmax(P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) -
+                               C[t - 1] / K,
                            0.001));
         P[t] ~ lognormal(Pmed[t], sigma) T[0.05, 1.6];
     }

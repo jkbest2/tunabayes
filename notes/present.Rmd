@@ -1,0 +1,137 @@
+---
+title: "BUGging Stan"
+author: "John Best"
+output: ioslides_presentation
+---
+
+## Objective
+
+Translate nonlinear state-space model from BUGS to Stan and diagnose potential problems in the posterior.
+
+Model from two papers:
+
+- Meyer, Renate and Russell B. Millar. 1999. BUGs in Bayesian Stock assessments. *Canadian Journal of Fisheries and Aquatic Sciences*. 56:1078-1086.
+- Millar, Russell B. and Renate Meyer. 2000. Non-linear state space modelling of fisheries biomass dynamics by using Metropolis-Hastings within-Gibbs sampling. *Applied Statistics*. 49, Part 3: 327-342.
+
+## Model: Data
+
+- $C_t$: Catch biomass in year $t$
+- $I_t$: Catch per unit effort in year $t$
+
+![Albacore](../figs/albacore.png)
+
+## Model: Observation
+
+$I_t$ is considered an index of abundance, in this case biomass $B_t$. These are related through the parameter $q$, catchability.
+
+$$I_t = q B_t.$$
+
+Nondimensionalizing $B_t$ against carrying capacity $K$ gives $P_t = B_t / K$, observed with log-normal noise with CV $\tau$.
+
+$$\begin{aligned}
+I_t \mid P_t,q,\tau^2 &= q K P_t e^{v_t}\\
+v_t &\sim \operatorname{Normal}(0, \tau^2).
+\end{aligned}$$
+
+## Model: Population dynamics
+
+- Schaefer model
+- Intrinsic growth rate $r$
+- log-Normal noise with CV $\sigma$
+- $P_1$ near $1$
+
+$$\begin{aligned}
+P_1 \mid \sigma^2 &= e^{u_1}\\
+P_t \mid P_{t-1},K,r,\sigma^2 &= \left[P_{t-1} + r P_{t-1}(1 - P_{t-1}) - C_{t-1} / K\right]e^{u_t} &t = 2, \ldots, N\\
+u_t &\sim \operatorname{Normal}(0, \sigma^2),
+\end{aligned}$$
+
+## Model: Priors
+
+All but $q$ at least somewhat informative, based on literature review. Specified $\log(q) \sim \operatorname{Flat}$.
+
+$$\begin{aligned}
+K &\sim \operatorname{log Normal}(5.04, 0.5162^2)\\
+r &\sim \operatorname{log Normal}(-1.38, 0.51^2)\\
+p(q) &\propto 1/q\\
+\sigma^2 &\sim \operatorname{Inverse Gamma}(3.79, 0.0102)\\
+\tau^2 &\sim \operatorname{Inverse Gamma}(1.71, 0.0086).
+\end{aligned}$$
+
+## Model: BUGs Approximations
+
+- Truncated priors
+- Approximate $p(q)$ with inverse-gamma.
+- Problems in Stan
+
+![](../figs/WinBUGSlogo.jpg)
+
+## Stan: No-U-Turn Sampler
+
+- Hamiltonian dynamics
+- Self-tuning
+
+[NUTS Simulator](https://chi-feng.github.io/mcmc-demo/app.html#EfficientNUTS,banana)
+
+- Divergences: too much curvature
+- Max treedepth exceeded: too flat
+
+## Stan: Changes
+
+- Eliminate all truncations
+- `lognormal` takes a CV rather than a precision
+- Use Inverse Gamma distribution
+- Use specified prior on $q$.
+
+## Stan: Code
+
+```{r echo = FALSE, output = 'asis'}
+writeLines(readLines('Schaefer_corrpriors.stan')[23:32])
+```
+
+## Stan: Code
+
+```{r echo = FALSE, output = 'asis'}
+writeLines(readLines('Schaefer_corrpriors.stan')[33:50])
+```
+
+# Comparison
+
+## Comparing models
+
+- Original BUGs model fit in Stan
+- Reparameterized
+- Reparameterized with adjusted sampler
+- Noncentered parameterization
+
+- 4 chains
+- $10,000$ draws
+- $5,000$ warmup iterations
+- $20,000$ inference iterations
+
+## Results: Performance
+
+```{r echo = FALSE}
+source('05_results.R')
+options(digits = 1)
+knitr::kable(min_eff)
+```
+
+## Results: $K$
+
+```{r echo = FALSE}
+options(digits = 3)
+knitr::kable(Kmean)
+```
+
+## Results: $r$
+
+```{r echo=FALSE}
+knitr::kable(rmean)
+```
+
+## Results: $q$
+
+```{r echo=FALSE}
+knitr::kable(qmean)
+```

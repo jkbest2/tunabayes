@@ -1,40 +1,71 @@
-source('01_setup.R')
-source('02_fitfns.R')
+source('src/01_setup.R')
+source('src/02_fitfns.R')
 
-resT <- fitmod('Schaefer.stan',
+n_iter <- 1e4
+n_chain <- 4
+
+res0 <- fitmod('src/models/0_Schaefer_T.stan',
                data = tuna_data,
-               iter = 1e4, chains = 4,
-               init = inits,
+               iter = n_iter, chains = n_chain,
                cores = 1L)
-fitT <- resT$fit
-timeT <- resT$time
-rm(resT)
+fit0 <- resT$fit
+time0 <- resT$time
+rm(res0)
 
-resC1 <- fitmod('Schaefer_corrpriors.stan',
+res1 <- fitmod('src/models/1_Schaefer_C.stan',
                data = tuna_data,
-               iter = 1e4, chains = 4,
+               iter = n_iter, chains = n_chain,
                cores = 1L)
-fitC1 <- resC1$fit
-timeC1 <- resC1$time
-rm(resC1)
+fit1 <- res1$fit
+time1 <- res1$time
+rm(res1)
 
-resC2 <- fitmod('Schaefer_corrpriors.stan',
+# res2 <- fitmod('src/models/2_Schaefer_OL.stan',
+#                data = tuna_data,
+#                iter = n_iter, chains = n_chain,
+#                cores = 1L)
+# fit2 <- res2$fit
+# time2 <- res2$time
+# rm(res2)
+
+res3 <- fitmod('src/models/3_Schaefer_PL.stan',
                data = tuna_data,
-               iter = 1e4, chains = 4,
-               cores = 1L,
-               control = list(adapt_delta = 0.99))
-fitC2 <- resC2$fit
-timeC2 <- resC2$time
-rm(resC2)
+               iter = n_iter, chains = n_chain,
+               cores = 1L)
+fit3 <- res3$fit
+time3 <- res3$time
+rm(res3)
 
-resN <- fitmod('tuna_noncentered.stan',
+# res4 <- fitmod('src/models/4_Schaefer_OPL.stan',
+#                data = tuna_data,
+#                iter = n_iter, chains = n_chain,
+#                cores = 1L)
+# fit4 <- res4$fit
+# time4 <- res4$time
+# rm(res4)
+
+# res5 <- fitmod('src/models/5_Schaefer_ON.stan',
+#                data = tuna_data,
+#                iter = n_iter, chains = 5,
+#                cores = 1L)
+# fit5 <- res5$fit
+# time5 <- res5$time
+# rm(res5)
+
+res6 <- fitmod('src/models/6_Schaefer_PN.stan',
                data = tuna_data,
-               iter = 1e4, chains = 4,
-               cores = 1L,
-               control = list(adapt_delta = 0.99,
-                              max_treedepth = 20))
-fitN <- resN$fit
-timeN <- resN$time
-rm(resN)
+               iter = n_iter, chains = n_chain,
+               cores = 1L)
+fit6 <- res4$fit
+time6 <- res4$time
+rm(res6)
 
-save.image('fit_results.Rdata')
+# res7 <- fitmod('src/models/7_Schaefer_OPN.stan',
+#                data = tuna_data,
+#                iter = n_iter, chains = n_chain,
+#                cores = 1L)
+# fit7 <- res7$fit
+# time7 <- res7$time
+# rm(res7)
+
+save.image('results/fit_results.Rdata')

@@ -9,7 +9,7 @@ parameters {
     real<lower=0.5,upper=100> iq;
     real<lower=0> isigma2;
     real<lower=0> itau2;
-    vector[N]<lower=0.05,upper=1.6> P;
+    vector<lower=0.05,upper=1.6>[N] P;
 }
 
 transformed parameters {

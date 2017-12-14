@@ -1,0 +1,68 @@
+---
+title: "Fish 558 Final Project"
+author: "John Best"
+date: "December 14, 2017"
+bibliography: final.bib
+output: pdf_document
+---
+
+# Introduction
+
+Markov Chain Monte Carlo is a foundational technique for fitting Bayesian statistical models. In the natural sciences these models have often been fitted using the software packages that provide a domain-specific language that makes model specification straightforward. The BUGS family of software packages, including WinBUGS, OpenBUGS, and the more recent JAGS have been among the most popular in the natural sciences literature [@monnahan2017]. These packages use a variety of Gibbs sampling strategies to produce autocorrelated samples from the posterior of a Bayesian model.
+
+## The NUTS sampler
+
+A more recent package is Stan [@stan2017]. Instead of using a Gibbs sampler, Stan uses a self-tuning version of Hamiltonian Monte Carlo (HMC) called the No-U-Turn Sampler (NUTS). Hamiltonian Monte Carlo uses an analogy to physical dynamics to generate proposals. Momenta are sampled along with parameter values, and the negative log-posterior density serves as a measure of potential energy. Conceptually, this can be imagined as rolling a ball with some momentum around a curved surface, and proposing a point (set of parameter values) along the path.
+
+Simulating these dynamics requires the gradient of the posterior at any given point. These are calculated via automatic differentiation for accuracy and efficiency. Specifically, the Stan Math library implements reverse-mode autodifferentiation for most common operations as well as a large number of probability distributions [@stanmath]. This is also the reason that Stan does not allow for sampling discrete parameters and generally requires that the log-posterior density be differentiable.
+
+At each iteration, a momentum vector is sampled. The path of a particle with this momentum starting at its current location is then simulated over a number of steps with a fixed integration time. The number of steps and integration time is determined automatically during the warmup phase [@hoffman2014]. For this reason it is particularly important to allow for an adequate number of warmup iterations when using Stan.
+
+To maintain detailed balance, the particle's path may be simulated both forward and backward (i.e. with the negative of the momentum vector) in "time" until a stopping criterion is met. This is done by building a balanced binary tree of potential proposals. From the initial set of parameter values, a direction in "time" is chosen randomly and a single step in time is taken in that direction. Another direction is chosen, and two steps are taken in that direction. This is repeated, doubling the number of steps each time, until either the subtree begins to turn back on itself, or the maximum tree depth is reached. At this point a subset of the leaves of the tree are sampled as the next parameter vector.
+
+The key tuning parameter here is the step size. Too small and the sampler devolves to a random walk and the maximum treedepth is reached often. Too large and there will be too much error in the numerical integration, typically sending the "particle" off to values whose posterior density can underflow. This is known as a divergence. Stan will emit warnings for either of these conditions. Conceptually, maximum treedepth is reached when the log-posterior is too "flat" for the given step size, and divergences occur when the curvature is too large for a given step size. It is possible to get both warnings for a model run. Assuming that the warmup is adequate, this indicates that the range of curvatures in the model is too large for a single step size to account for. Newer samplers that can account for such local structure such as Riemannian Monte Carlo [@girolami2009] have been proposed, but are not widely available.
+
+Warnings about reaching maximum tree depth indicate that the sampler is not exploring some part of the parameter space efficiently. This results in wasted computation compared to using a larger step size. Warnings about divergent transitions, on the other hand, are not to be ignored lightly. There is strong evidence that these are indicative of steep gradients in the posterior geometry that the sampler cannot explore. With a finite number of samples it is likely that in these areas of high curvature we are failing to explore an area of the parameter space adequately, resulting in biased estimators. The Gibbs samplers used in the BUGS family of software packages will have similar difficulties exploring these regions of the parameter space, but will not give any indication that the results may be biased.
+
+For some divergences, it is enough to reduce the size of the time step; if the gradient isn't too extreme the proposals will stop "overshooting" and the sampler will be able to explore the full parameter space. This is done via the `adapt_delta` control argument to Stan. This results in more computation time within each iteration, but this is worth it for unbiased samples.
+
+In some models the gradients increase essentially without bound, as in standard hierarchical regression. In this case, the only way to deal with the divergences is to modify the model to eliminate these regions of extreme curvature by decorrelating parameters. One approach to this is the so-called non-centered parameterization, where parameters are sampled from a standard normal distribution, and then their location and scale are adjusted as necessary so that they can be used in the posterior calculations [@monnahan2017, @divcase]. A centered parameterization would look like
+
+$$Y \sim \operatorname{Normal}(\mu, \sigma^2),$$
+ 
+ while the noncentered paramterization would be
+ 
+ $$\begin{aligned}
+ v &\sim \operatorname{Normal}(0, 1)\\
+ Y = \mu + \sigma v.
+ \end{aligned}$$
+ 
+ In the centered parameterization, the range of likely values of $Y$ decreases as $\sigma$ decreases. The noncentered parameterization removes this dependence, so that $v$ is sampled independently of $\sigma$.
+
+It is important to note that due to the extra computational burden of using the NUTS sampler, Stan may take longer than a Gibbs sampler to produce a chain of a given length. However because autocorrelation is reduced, the effective sample size is larger and thinning is often unnecessary. This generally results in more *effective* samples per unit time using Stan rather than a Gibbs implementation.
+
+# Methods
+
+## Models
+
+I will focus on the Bayesian model that we looked at in Lecture 4. First I will reproduce the fits in JAGS as we used them in class. As this is a hierarchical model, there is probably some pathological posterior geometry [@betancourt2013].
+
+Next I will translate the model to the Stan language. A naïve translation will yield a model that should be directly comparable to that fit in JAGS. I will also time the fit for this model, and calculate the effective sample size. Diagnostic information on divergences and other MCMC issues will also be recorded and presented.
+
+Finally, I will modify the naïve Stan model using the non-centered parameterization in an attempt to eliminate the divergences I expect to encounter in the naïve Stan model. This will take some consideration, as this model uses a hierarchical log-normal likelihood rather than a normal likelihood. I will also explore further optimizations where possible.
+
+## Model runs
+
+In setting the number of iterations and chains for each model run, I will need to balance time with a need to thoroughly explore the parameter space to really ensure that I find areas with divergent transitions. It is also important that I give the JAGS model a sufficient number of iterations to explore the parameter space as effectively. This may take some tuning.
+
+In order to get comparable timings, I will not run Stan chains in parallel for the timing results (described below). Stan models are compiled, so it will also be important to get separate timings for compilation and sampling.
+
+## Model comparisons
+
+My first point of comparison is the number of divergences in each Stan model, with the goal of eliminating them completely in the optimized Stan model. Once the divergences are eliminated, I will compare the posterior distributions of the three models. There is a possibility of finding evidence of bias in the JAGS and naïve Stan formulations. Point estimates including marginal means and medians will be compared to look for bias, while considering the Monte Carlo error associated with these estimates.
+
+After this, it will be interesting to compare the effective sample size per clock time of each formulation. I expect that the naïve Stan model will out-sample the JAGS model. It is also possible that the optimized Stan model will out-sample the naïve Stan model. This is based on the "folk theorem of statistical computing", as stated by Andrew Gelman [@folktheorem2008].
+
+I will calculate effective sample size using both the `rstan` and `coda` packages. Each package calculates effective sample size differently. The `rstan` version is meant to be more conservative.
+
+# Bibliography

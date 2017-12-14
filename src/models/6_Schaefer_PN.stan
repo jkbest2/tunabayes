@@ -6,7 +6,7 @@ data {
 
 parameters {
     real<lower=0> K;
-    real r;
+    real<lower=0> r;
     real u[N];
     real<lower=0> sigma2;
     real<lower=0> tau2;

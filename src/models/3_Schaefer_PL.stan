@@ -8,7 +8,6 @@ parameters {
     real<lower=0> K;
     real<lower=0> r;
     real<lower=0> u[N];
-    real<lower=0> v[N];
     real<lower=0> sigma2;
     real<lower=0> tau2;
     real<lower=0> q;
@@ -31,11 +30,6 @@ transformed parameters {
                            C[t - 1] / K,
                        0.001);
 	    P[t] = Pmed[t] * u[t] ^ sigma;
-    }
-
-    // Noncentered observation deviations
-    for (t in 1:N) {
-        v[t] = (I[t] / (q * K * P[t]))^tau
     }
 }
 
@@ -72,4 +66,3 @@ generated quantities {
     MSY = r * K / 4;
     EMSY = r / (2 * q);
 }
-

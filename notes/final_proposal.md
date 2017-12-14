@@ -1,7 +1,7 @@
 ---
 title: FISH 558 Final Project Proposal
 author: John Best
-bibliographs: final.bib
+bibliography: final.bib
 ---
 
 # Introduction
@@ -50,4 +50,3 @@ After this, it will be interesting to compare the effective sample size per cloc
 I will calculate effective sample size using both the `rstan` and `coda` packages. Each package calculates effective sample size differently. The `rstan` version is meant to be more conservative.
 
 # Bibliography
-

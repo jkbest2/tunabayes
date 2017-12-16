@@ -52,7 +52,8 @@ model {
 generated quantities {
     vector[N] Imed;
     vector[N] Inew;
-    vector[N] Biomass;
+    vector[N + 1] Biomass;
+    real P24;
     real MSY;
     real EMSY;
 
@@ -62,6 +63,8 @@ generated quantities {
         Inew[t] = lognormal_rng(Imed[t], tau);
         Biomass[t] = K * P[t];
     }
+    P24 = P[N] + r * P[N] * (1 - P[N]) - C[N] / K;
+    Biomass[N + 1] = K * P24;
 
     // Other ouputs
     MSY = r * K / 4;

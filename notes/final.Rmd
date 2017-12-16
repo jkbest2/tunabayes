@@ -10,59 +10,260 @@ output: pdf_document
 
 Markov Chain Monte Carlo is a foundational technique for fitting Bayesian statistical models. In the natural sciences these models have often been fitted using the software packages that provide a domain-specific language that makes model specification straightforward. The BUGS family of software packages, including WinBUGS, OpenBUGS, and the more recent JAGS have been among the most popular in the natural sciences literature [@monnahan2017]. These packages use a variety of Gibbs sampling strategies to produce autocorrelated samples from the posterior of a Bayesian model.
 
-## The NUTS sampler
-
 A more recent package is Stan [@stan2017]. Instead of using a Gibbs sampler, Stan uses a self-tuning version of Hamiltonian Monte Carlo (HMC) called the No-U-Turn Sampler (NUTS). Hamiltonian Monte Carlo uses an analogy to physical dynamics to generate proposals. Momenta are sampled along with parameter values, and the negative log-posterior density serves as a measure of potential energy. Conceptually, this can be imagined as rolling a ball with some momentum around a curved surface, and proposing a point (set of parameter values) along the path.
 
 Simulating these dynamics requires the gradient of the posterior at any given point. These are calculated via automatic differentiation for accuracy and efficiency. Specifically, the Stan Math library implements reverse-mode autodifferentiation for most common operations as well as a large number of probability distributions [@stanmath]. This is also the reason that Stan does not allow for sampling discrete parameters and generally requires that the log-posterior density be differentiable.
 
-At each iteration, a momentum vector is sampled. The path of a particle with this momentum starting at its current location is then simulated over a number of steps with a fixed integration time. The number of steps and integration time is determined automatically during the warmup phase [@hoffman2014]. For this reason it is particularly important to allow for an adequate number of warmup iterations when using Stan.
+At each iteration, a momentum vector is sampled. The path of a particle with this momentum starting at its current location is then simulated over a number of steps with a fixed integration time. The number of steps and integration time is determined automatically during the warm up phase [@hoffman2014]. For this reason it is particularly important to allow for an adequate number of warm up iterations when using Stan.
 
 To maintain detailed balance, the particle's path may be simulated both forward and backward (i.e. with the negative of the momentum vector) in "time" until a stopping criterion is met. This is done by building a balanced binary tree of potential proposals. From the initial set of parameter values, a direction in "time" is chosen randomly and a single step in time is taken in that direction. Another direction is chosen, and two steps are taken in that direction. This is repeated, doubling the number of steps each time, until either the subtree begins to turn back on itself, or the maximum tree depth is reached. At this point a subset of the leaves of the tree are sampled as the next parameter vector.
 
-The key tuning parameter here is the step size. Too small and the sampler devolves to a random walk and the maximum treedepth is reached often. Too large and there will be too much error in the numerical integration, typically sending the "particle" off to values whose posterior density can underflow. This is known as a divergence. Stan will emit warnings for either of these conditions. Conceptually, maximum treedepth is reached when the log-posterior is too "flat" for the given step size, and divergences occur when the curvature is too large for a given step size. It is possible to get both warnings for a model run. Assuming that the warmup is adequate, this indicates that the range of curvatures in the model is too large for a single step size to account for. Newer samplers that can account for such local structure such as Riemannian Monte Carlo [@girolami2009] have been proposed, but are not widely available.
+The key tuning parameter is the integration time, which determines how far each "step" travels. Too small and the sampler devolves to a random walk and the maximum tree depth is reached often. Too large and there will be too much error in the numerical integration, typically sending the "particle" off to values whose posterior density can underflow. This is known as a divergent transition. Stan will emit warnings for either of these conditions. Conceptually, maximum tree depth is reached when the log-posterior is too "flat" for the given step size, and divergences occur when the curvature is too large for a given step size. It is possible to get both warnings for a model run. Assuming that the warm up is adequate, this indicates that the range of curvatures in the model is too large for a single step size to account for. Newer samplers that can account for such local structure such as Riemannian Monte Carlo [@girolami2009] have been proposed, but are not widely available.
 
-Warnings about reaching maximum tree depth indicate that the sampler is not exploring some part of the parameter space efficiently. This results in wasted computation compared to using a larger step size. Warnings about divergent transitions, on the other hand, are not to be ignored lightly. There is strong evidence that these are indicative of steep gradients in the posterior geometry that the sampler cannot explore. With a finite number of samples it is likely that in these areas of high curvature we are failing to explore an area of the parameter space adequately, resulting in biased estimators. The Gibbs samplers used in the BUGS family of software packages will have similar difficulties exploring these regions of the parameter space, but will not give any indication that the results may be biased.
+Warnings about reaching maximum tree depth indicate that the sampler is not exploring some part of the parameter space efficiently. This results in wasted computation compared to using a larger step size. Warnings about divergent transitions on the other hand are not to be ignored lightly. These are indicative of steep gradients in the posterior geometry that the sampler cannot explore. With a finite number of samples it is likely that in these areas of high curvature the sampler is failing to explore an area of the parameter space adequately, resulting in biased estimators. The Gibbs samplers used in the BUGS family of software packages will have similar difficulties exploring these regions of the parameter space, but will not give any indication that the results may be biased.
 
-For some divergences, it is enough to reduce the size of the time step; if the gradient isn't too extreme the proposals will stop "overshooting" and the sampler will be able to explore the full parameter space. This is done via the `adapt_delta` control argument to Stan. This results in more computation time within each iteration, but this is worth it for unbiased samples.
+For posterior geometries, it is enough to reduce the size of the time step; if the gradient isn't too extreme the proposals will stop "overshooting" and the sampler will be able to explore the full parameter space. This is done via the `adapt_delta` control argument for Stan. This results in more computation time within each iteration, but this is worth it for unbiased samples.
 
 In some models the gradients increase essentially without bound, as in standard hierarchical regression. In this case, the only way to deal with the divergences is to modify the model to eliminate these regions of extreme curvature by decorrelating parameters. One approach to this is the so-called non-centered parameterization, where parameters are sampled from a standard normal distribution, and then their location and scale are adjusted as necessary so that they can be used in the posterior calculations [@monnahan2017, @divcase]. A centered parameterization would look like
 
 $$Y \sim \operatorname{Normal}(\mu, \sigma^2),$$
  
- while the noncentered paramterization would be
+ while the non-centered parameterization would be
  
  $$\begin{aligned}
  v &\sim \operatorname{Normal}(0, 1)\\
- Y = \mu + \sigma v.
+ Y &= \mu + \sigma v.
  \end{aligned}$$
  
- In the centered parameterization, the range of likely values of $Y$ decreases as $\sigma$ decreases. The noncentered parameterization removes this dependence, so that $v$ is sampled independently of $\sigma$.
+ In the centered parameterization, the range of likely values of $Y$ decreases as $\sigma$ decreases. The non-centered parameterization removes this dependence, so that $v$ is sampled independently of $\sigma$.
 
 It is important to note that due to the extra computational burden of using the NUTS sampler, Stan may take longer than a Gibbs sampler to produce a chain of a given length. However because autocorrelation is reduced, the effective sample size is larger and thinning is often unnecessary. This generally results in more *effective* samples per unit time using Stan rather than a Gibbs implementation.
 
 # Methods
 
-## Models
+## Model
 
-I will focus on the Bayesian model that we looked at in Lecture 4. First I will reproduce the fits in JAGS as we used them in class. As this is a hierarchical model, there is probably some pathological posterior geometry [@betancourt2013].
+The available data are catch in year $t$, $C_t$, and catch per unit effort in year $t$, $I_t$. $I_t$ is considered an index of abundance, in this case biomass $B_t$. These are related through the parameter $q$, catchability, such that
 
-Next I will translate the model to the Stan language. A naïve translation will yield a model that should be directly comparable to that fit in JAGS. I will also time the fit for this model, and calculate the effective sample size. Diagnostic information on divergences and other MCMC issues will also be recorded and presented.
+$$I_t = q B_t.$$
 
-Finally, I will modify the naïve Stan model using the non-centered parameterization in an attempt to eliminate the divergences I expect to encounter in the naïve Stan model. This will take some consideration, as this model uses a hierarchical log-normal likelihood rather than a normal likelihood. I will also explore further optimizations where possible.
+Nondimensionalizing $B_t$ against carrying capacity $K$ gives $P_t = B_t / K$, observed with log-normal noise with CV $\tau$, so that
 
-## Model runs
+$$\begin{aligned}
+I_t \mid P_t,q,\tau^2 &= q K P_t e^{v_t}\\
+v_t &\sim \operatorname{Normal}(0, \tau^2).
+\end{aligned}$$
 
-In setting the number of iterations and chains for each model run, I will need to balance time with a need to thoroughly explore the parameter space to really ensure that I find areas with divergent transitions. It is also important that I give the JAGS model a sufficient number of iterations to explore the parameter space as effectively. This may take some tuning.
+The population dynamics are assumed to follow a Schaefer model with intrinsic growth rate $r$, and log-normal process variation with a CV of $\sigma$. It is further assumed that the initial population is near carrying capacity, so that $P_1$ is close to $1$. This gives
 
-In order to get comparable timings, I will not run Stan chains in parallel for the timing results (described below). Stan models are compiled, so it will also be important to get separate timings for compilation and sampling.
+$$\begin{aligned}
+P_1 \mid \sigma^2 &= e^{u_1}\\
+P_t \mid P_{t-1},K,r,\sigma^2 &= \left[P_{t-1} + r P_{t-1}(1 - P_{t-1}) - C_{t-1} / K\right]e^{u_t} &t = 2, \ldots, N\\
+u_t &\sim \operatorname{Normal}(0, \sigma^2),
+\end{aligned}$$
 
-## Model comparisons
 
-My first point of comparison is the number of divergences in each Stan model, with the goal of eliminating them completely in the optimized Stan model. Once the divergences are eliminated, I will compare the posterior distributions of the three models. There is a possibility of finding evidence of bias in the JAGS and naïve Stan formulations. Point estimates including marginal means and medians will be compared to look for bias, while considering the Monte Carlo error associated with these estimates.
+All the parameters beside $q$ are given at least somewhat informative priors, based on the literature about this species or closely related species. These are specified as
 
-After this, it will be interesting to compare the effective sample size per clock time of each formulation. I expect that the naïve Stan model will out-sample the JAGS model. It is also possible that the optimized Stan model will out-sample the naïve Stan model. This is based on the "folk theorem of statistical computing", as stated by Andrew Gelman [@folktheorem2008].
+$$\begin{aligned}
+K &\sim \operatorname{log Normal}(5.04, 0.5162^2)\\
+r &\sim \operatorname{log Normal}(-1.38, 0.51^2)\\
+p(q) &\propto 1/q\\
+\sigma^2 &\sim \operatorname{Inverse Gamma}(3.79, 0.0102)\\
+\tau^2 &\sim \operatorname{Inverse Gamma}(1.71, 0.0086).
+\end{aligned}$$
 
-I will calculate effective sample size using both the `rstan` and `coda` packages. Each package calculates effective sample size differently. The `rstan` version is meant to be more conservative.
+## Model parameterizations
+
+I fit four models based on the nonlinear state-space surplus production model presented in @millar2000 and @meyer1999. The BUGS code for the model is available as an appendix to @meyer1999. The first model is as direct a translation as possible of the coded model into the Stan language. This includes retaining the inverse transformations of $\sigma^2$, $\tau^2$, and $q$, as well as a number of truncations to the priors. All variables must be declared in the Stan language, and can be given bounds. For this model I declared bounds for each parameter as the truncation locations. This allows the sampler to work in an entirely unconstrained space, and helpfully allows for valid initial locations to be chosen automatically. This is referred to as the "truncated" parameterization.
+
+The truncations specified in the original BUGS model were only used to speed up convergence of the model fits in the original BUGS software. This was because a slower Metropolis-Hastings sampler was used for non-log-concave full-conditional distributions. Stan only uses NUTS, so there is no advantage to conjugate priors or log-concave distributions. The second model eliminates these truncations. It also takes advantage of the larger library of probability distributions in Stan, placing inverse-gamma priors directly on $\sigma^2$ and $\tau^2$, rather than gamma priors on their inverses, as specified in the original @meyer1999 and @millar2000 papers. The second model also uses Stan's ability to directly modify the log-posterior density calculation to declare an improper prior on $q$, again as originally specified. This model uses the centered parameterization for both process and observation error terms, so that
+
+$$\begin{aligned}
+P_1 &\sim \log\operatorname{Normal}(\log(1), \sigma^2)\\
+P_t &\sim \log\operatorname{Normal}\left(\log\left(P_{t-1} + r P_{t-1}(1 - P_{t-1}) - C_{t-1} / K\right), \sigma^2\right) &t = 2, \ldots, N,
+\end{aligned}$$
+
+and
+
+$$I_t \sim \log\operatorname{Normal}(log(q K P_t), \tau^2).$$
+
+This is called the "centered" parameterization going forward.
+
+The third model non-centers the process error using a log-normal error, so that the equations above become
+
+$$\begin{aligned}
+u_t &\sim \log\operatorname{Normal}(0, 1)\\
+P_1 &= u_1^\sigma\\
+P_t &= \left[\left(P_{t-1} + r P_{t-1}(1 - P_{t-1}) - C_{t-1} / K\right)\right]u_t^\sigma &t = 2, \ldots, N.
+\end{aligned}$$
+
+This is the "log Normal" parameterization.
+
+The fourth model uses a normal process error term, so that 
+
+$$\begin{aligned}
+u_t &\sim \operatorname{Normal}(0, 1)\\
+P_1 &= \exp(u_1 \sigma)\\
+P_t &= \left[\left(P_{t-1} + r P_{t-1}(1 - P_{t-1}) - C_{t-1} / K\right)\right]\exp(u_t \sigma) &t = 2, \ldots, N.
+\end{aligned}$$
+
+This is the "Normal" parameterization.
+
+Each model was run for 4 chains of 10,000 iterations each. No thinning was done to the chains. Each fit was then examined for number of divergent transitions, max tree depth exceedences, parameter posterior distributions, and computational time.
+
+As will be shown below, the centered parameterization showed the best sampler performance. An additional fit was performed with `adapt_delta` increased from the default of $0.8$ to $0.975$. This value was chosen by trial and error, as values less than this resulted in divergences and values greater resulted in warnings about exceeding maximum tree depth. This is the "Centered Adj" parameterization.
+
+None of these parameterizations include a bias correction. A direct comparison with the @meyer1999 model seemed appropriate here, and this model does not include a bias correction of any kind.
+
+# Results
+
+```{r include=FALSE}
+library(tidyverse)
+library(rstan)
+
+fitT <- readRDS('../results/fit0.Rds')
+fitC <- readRDS('../results/fit1.Rds')
+fitCa <- readRDS('../results/fit1a.Rds')
+fitL <- readRDS('../results/fit3.Rds')
+fitN <- readRDS('../results/fit6.Rds')
+fit_df <- tibble(name = c('Truncated', 'Centered', 'Centered Adj',
+                          'logNormal', 'Normal'))
+fit_df$fit = c(fitT, fitC, fitCa, fitL, fitN)
+```
+
+## Diagnostics
+
+First we'll consider the sampler diagnostics for each model. The following table lists the number of divergences in the 20,000 post-warm up samples for each parameterization, and the maximum tree depth reached over all of the samples. Note that for all the fits besides "centered Adj" the `adapt_delta` parameter is set to the default value of `0.8`. "centered Adj" uses `adapt_delta = 0.975` as described above. The `max_treedepth` parameter is kept at the default value of `10` for all five of these fits.
+
+```{r echo=FALSE}
+get_divcount <- function(sp, warmup = 1:5000) {
+    chain_divcount <- sapply(sp,
+                             function(x) sum(x[-warmup, 'divergent__']))
+    sum(chain_divcount)
+}
+
+get_maxtreedepth <- function(sp, warmup = 1:5000) {
+    chain_maxtd <- sapply(sp,
+                          function(x) max(x[-warmup, 'treedepth__']))
+    max(chain_maxtd)
+}
+
+fit_df %>%
+    mutate(samp_pars = map(fit, get_sampler_params)) %>%
+    transmute("Parameterization" = name,
+              "Divergences" = map_dbl(samp_pars, get_divcount),
+              "Max Treedepth" = map_dbl(samp_pars, get_maxtreedepth)) %>%
+    knitr::kable(.)
+```
+
+Here it is clear that the truncated parameterization has some serious problems, with almost 75\% divergent transitions. The centered parameterization performs best, with only 3 divergences over the 20,000 samples. These could then be eliminated by increasing `adapt_delta`. The resulting smaller step size explains why the maximum tree depth increased in the adjusted fit.
+
+The log Normal parameterization did not do as well, with 2\% divergent transitions. The Normal parameterization had fewer than 1\% divergent transitions, but still many more than the centered parameterization.
+
+For general convergence diagnostics, I found the minimum effective sample size and the maximum $\hat{R}$ value for each parameterization. I also indicate which parameter these are associated with.
+
+```{r echo=FALSE}
+get_neff <- function(fitsumm) fitsumm[['summary']][, 'n_eff']
+get_min_neff <-function(fitsumm) {
+    neff <- get_neff(fitsumm)
+    lpidx <- which(names(neff) == 'lp__')
+    neff <- neff[-lpidx]
+    list(par = names(neff)[which.min(neff)],
+         neff = min(neff))
+}
+get_Rhat <- function(fitsumm) fitsumm[['summary']][, 'Rhat']
+get_max_Rhat <- function(fitsumm) {
+    Rhat <- get_Rhat(fitsumm)
+    Rhat <- Rhat[!is.nan(Rhat)]
+    lpidx <- which(names(Rhat) == 'lp__')
+    Rhat <- Rhat[-lpidx]
+    list(par = names(Rhat)[which.max(Rhat)],
+         Rhat = max(Rhat))
+}
+
+fit_df %>%
+    mutate(summ = map(fit, summary),
+           min_ess = map(summ, get_min_neff),
+           max_Rhat = map(summ, get_max_Rhat)) %>%
+    transmute("Parameterization" = name,
+              "Min ESS par" = map_chr(min_ess, pluck, "par"),
+              "Min ESS" = round(map_dbl(min_ess, pluck, "neff")),
+              "Max Rhat par" = map_chr(max_Rhat, pluck, "par"),
+              "Max Rhat" = map_dbl(max_Rhat, pluck, "Rhat")) -> conv_df
+    knitr::kable(conv_df)
+```
+
+All of the parameterizations appear to have converged by the rule of thumb that $\hat{R} < 1.1$ indicates this. Visual examination of the trace plots supports this conclusion. The somewhat more interesting statistic is the estimate of effective sample sizes. The truncated parameterization resulted in an order of magnitude loss here, indicating that these chains are more highly autocorrelated. The non-centered parameterizations both performed fairly well here, but the centered Adj fit is not far behind.
+
+## Posteriors
+
+To compare the posterior distributions, I looked at the final year's depletion (`P[23]`), carrying capacity (`K`), `MSY`, population growth rate (`r`), process variation (`sigma`), and observation error (`tau`).
+
+```{r echo=FALSE}
+pars = c('r', 'K', 'MSY', 'P[23]', 'sigma', 'tau')
+fit_df %>%
+    transmute(name = name,
+              post = map(fit, as.data.frame)) %>%
+    unnest(post) %>%
+    select(name, r, K, sigma, tau, MSY, `P[23]`) %>%
+    gather(Parameter, val, -name) %>%
+    ggplot(aes(x = name, y = val)) +
+    geom_violin() +
+    facet_wrap(~ Parameter, scales = 'free') + coord_flip() +
+    labs(title = "Posterior distributions", x = NULL, y = NULL)
+```
+
+The non-centered parameterizations (Normal and log Normal) result in a substantial fatter tail for $K$, resulting in a similarly fat tail for MSY and the final year biomass. It's not entirely clear why these posteriors are so different. The two centered posteriors and the truncated posterior don't differ much in these parameters. However, there appears to be a rather pronounced bias in the posterior of $\sigma$ in the truncated model. Of course, we shouldn't put too much stock in any posteriors that come from chains with divergent transitions.
+
+Additionally, we can compare our posterior means with those recorded in Table 2 of @meyer1999. In this case, we are comparing their State-space model formulation with the centered adjusted fit we obtained here. The third column of this tabe is the standard error of the mean estimate (not the standard deviation of the marginal posterior). Unfortunately @meyer1999 do not provide uncertainty measures for their mean estimates.
+
+```{r echo=FALSE}
+comp_pars <- c('K', 'r', 'q', 'Biomass[24]', 'P24', 'MSY', 'EMSY')
+comp_df <- tibble(Parameter = c('K', 'r', 'q', 'Biomass[1990]',
+                                'P[1990]', 'MSY', 'EMSY'),
+                  MeyerMillar = c(279.8, 0.293, 0.2389, 83.97,
+                                  0.297, 19.26, 0.6086),
+                  "Centered Adj" = sapply(rstan::extract(fitCa,
+                                                         pars = comp_pars),
+                                          mean),
+                  "Mean SE" = summary(fitCa, pars = comp_pars)$summary[, 'se_mean'])
+knitr::kable(comp_df)
+```
+
+These results indicate that the truncations do appear to have an effect on the posteriors. The estimates of the mean of $K$ and biomass in 1990 are particularly far apart relative to their respective mean standard errors. Population growth rate ($r$) is also multiple standard errors apart. MSY, EMSY and $q$, on the other hand, are quite close.
+
+## Timing
+
+Finally, the time required to run each model was retrieved. As mentioned above, comparing time per effective sample is also important when evaluating the computational efficiency of a model fit.
+
+```{r echo=FALSE}
+fit_df %>%
+    transmute('Parameterization' = name,
+              'Total time (s)' = map_dbl(fit,
+                                 function(x) sum(get_elapsed_time(x)))) %>%
+    right_join(conv_df, by = "Parameterization") %>%
+    mutate(`Seconds per Eff` = `Total time (s)` / `Min ESS`) %>%
+    select(`Parameterization`, `Total time (s)`, `Seconds per Eff`) %>%
+    knitr::kable(.)
+```
+
+The centered parameterization both ran in the shortest time and produced effectively independent samples most quickly. The decreased step size in the Adjusted fit slowed down the fit, but by less than a factor of 2. The non-centered parameterizations and the truncated parameterization were each much slower than these. 
+
+# Discussion
+
+It is difficult to reason about high-dimensional geometry of a posterior. The gradient information used by the NUTS sampler can however provide some hints about geometries that may be difficult to sample due to curvature that changes substantially over the parameter space. Posteriors with substantial mass in areas with little curvature will sample inefficiently, while excess curvature can prevent sampling some areas of the posterior altogether, potentially biasing inferences.
+
+The standard approach to dealing with excess curvature is non-centering. Non-centering is  typically used in hierarchical models with additive error. It is not clear what effect it has in models with multiplicative errors. In this case it was detrimental as shown by both sampler diagnostics and by computational efficiency metrics.  It is also not clear why the posterior distributions for the non-centered models were so different from the centered models, but this is certainly worrying.
+
+The posterior geometry of a nonlinear state space model such as this inherently difficult to conceptualize. Each population value (`P`) depends on all those before it in time, as well as $K$ and $r$. There is no clear structure such as the "funnel" in a linear hierarchical regression. This makes it difficult to reason about which alternative parameterizations might be advantageous. Another consideration is the amount of data available. It would be interesting to compare these parameterizations with differing amounts of data. 
+
+The centered parameterization was clearly the best of those tested here. It had very few divergent transitions using the default sampler parameters, and those could be eliminated by decreasing step size (increasing `adapt_delta`). This is the only parameterization that could be recommended based on this study.
+
+Although the truncated model is superficially similar to the centered, it suffers from problematic posterior geometry due to these hard truncations. These truncations also result in a biased posterior for some parameters. Fortunately, these truncations were utilized to increase computational efficiency. Now that these compromises are no longer necessary, these truncations should be eliminated going forward. Generally speaking, models should be reevaluated regularly as computational advances are made. Compromises made in the name of computational efficiency may no longer be applicable to new tools, and may actually harm efficiency as show here.
+
+In addition, we have shown that these models can result in changed estimates, as seen when comparing the results of @meyer1999 to our current best model. Whether these differences are relevant to management would need to be examined on a case-by-case basis. Indeed, mean MSY and EMSY were estimates were quite close.
+
+Newer generations of MCMC samplers, as available in software like Stan, provide both increased computational efficiency and additional diagnostics. The additional computational efficiency can be quite important, but the additional diagnostics allow for more confidence in posterior inference. It is important that these sampler diagnostics are taken seriously. Other model-fitting software will not issue these warnings, but the potential posterior bias is still present.
 
 # Bibliography

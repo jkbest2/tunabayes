@@ -1,5 +1,4 @@
 source('src/01_setup.R')
-source('src/02_fitfns.R')
 
 set.seed(38493)
 

@@ -2,56 +2,31 @@ library(rstan)
 library(bayesplot)
 library(tidyverse)
 
-load('fit_results.Rdata')
+load("results/fits.Rdata")
 
-sampparT <- get_sampler_params(fitT)
-sampparC1 <- get_sampler_params(fitC1)
-sampparC2 <- get_sampler_params(fitC2)
-sampparN <- get_sampler_params(fitN)
+post_df <- fit_df %>%
+  transmute(model_name = model_name,
+            post = map(fit, extract, inc_warmup = FALSE))
 
-divT <- sum(sapply(sampparT, function(x) sum(x[, 'divergent__'])))
-divC1 <- sum(sapply(sampparC1, function(x) sum(x[, 'divergent__'])))
-divC2 <- sum(sapply(sampparC2, function(x) sum(x[, 'divergent__'])))
-divN <- sum(sapply(sampparN, function(x) sum(x[, 'divergent__'])))
 
-pars <- c('K', 'r', 'q', 'sigma', 'tau')
+diag_df <- fit_df %>%
+  mutate(ess = map(fit, ~ summary(.)$summary[, "n_eff"])) %>%
+  transmute(model_name = model_name,
+            td_total = map_dbl(fit, get_num_max_treedepth),
+            div_total = map_dbl(fit, get_num_divergent),
+            ## na.rm to get rid of fixed (Pmed[1]) pars with NaN ESS
+            exp_ess = map_dbl(ess, mean, na.rm = TRUE),
+            min_ess = map_dbl(ess, min, na.rm = TRUE),
+            min_ess_par = map_chr(ess,
+                                  function(p) attr(p, "names")[which.min(p)]),
+            max_ess = map_dbl(ess, max, na.rm = TRUE))
 
-summT <- summary(fitT)$summary
-summC1 <- summary(fitC1)$summary
-summC2 <- summary(fitC2)$summary
-summN <- summary(fitN)$summary
+time_df <- fit_df %>%
+  left_join(diag_df, by = "model_name") %>%
+  mutate(times = map(fit, get_elapsed_time)) %>%
+  transmute(model_name = model_name,
+            warmup = map_dbl(times, ~ sum(.[, "warmup"])),
+            sample = map_dbl(times, ~ sum(.[, "sample"])),
+            min_ess_rate = min_ess / sample,
+            exp_ess_rate = exp_ess / sample)
 
-df <- data_frame(Model = c('T', 'C1', 'C2', 'N'),
-            Time = c(timeT, timeC1, timeC2, timeN),
-            Div = c(divT, divC1, divC2, divN),
-            summ = list(summT, summC1, summC2, summN))
-
-df %>%
-    transmute(Model = Model,
-         Min_Par = map_chr(summ,
-                           function(m) rownames(m)[which.min(m[, 'n_eff'])]),
-         Min_Eff = round(map_dbl(summ, function(m) min(m[, 'n_eff']))),
-         Time = Time,
-         Eff_per_Sec = Min_Eff / as.numeric(Time),
-         Divergences = Div) -> min_eff
-
-df %>%
-    transmute(Model = Model,
-         K = map_dbl(summ, function(m) m['K', 'mean']),
-         K_se = map_dbl(summ, function(m) m['K', 'se_mean'])) -> Kmean
-Kmean <- bind_rows(data_frame(Model = 'MM_ss', K = 279.8, K_se = NA),
-                   Kmean)
-
-df %>%
-    transmute(Model = Model,
-         r = map_dbl(summ, function(m) m['r', 'mean']),
-         r_se = map_dbl(summ, function(m) m['r', 'se_mean'])) -> rmean
-rmean <- bind_rows(data_frame(Model = 'MM_ss', r = 0.293, r_se = NA),
-                   rmean)
-
-df %>%
-    transmute(Model = Model,
-              q = map_dbl(summ, function(m) m['q', 'mean']),
-              q_se = map_dbl(summ, function(m) m['q', 'se_mean'])) -> qmean
-qmean <- bind_rows(data_frame(Model = 'MM_ss', q = 23.89, q_se = NA),
-                   qmean)

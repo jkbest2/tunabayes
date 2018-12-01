@@ -39,3 +39,4 @@ docs
 *.doc*
 *.html
 *.rds
+/*.Rdata

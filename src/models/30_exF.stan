@@ -1,6 +1,6 @@
 data {
   int<lower=0> T;                  // Number of years
-  real C_obs[T];                   // Observed catch
+  real C[T];                   // Observed catch
   real I[T];                       // CPUE index
   real catch_sd;                   // Standard deviation of catch obs; no data
                                    // to inform this so pass as data. Could be
@@ -47,13 +47,6 @@ model {
     // Catch occurs after production
     Pmed[t] = (P[t - 1] + r * P[t - 1] * (1 - P[t - 1])) *
       (1 - exp(-F[t - 1]));
-    if (is_nan(Pmed[t])) {
-      print("t = ", t,
-            " P[t-1] = ", P[t - 1],
-            " C_pred[t-1] = ", C_pred[t - 1],
-            " C_obs[t-1] = ", C_obs[t - 1] / K,
-            " Pmed[t] = ", Pmed[t]);
-    }
     P[t] ~ lognormal(log(Pmed[t]), sigma);
     C_pred[t] = K * P[t] * exp(-F[t]);
   }
@@ -64,7 +57,7 @@ model {
     I[t] ~ lognormal(Imed[t], tau);
 
     // Catch likelihood
-    C_obs[t] ~ normal(C_pred[t], catch_sd);
+    C[t] ~ normal(C_pred[t], catch_sd);
   }
 }
 

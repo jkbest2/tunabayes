@@ -1,24 +1,36 @@
 data {
-  int<lower=0> T; // number of years
-  real C[T];      // Catch biomass
-  real I[T];      // CPUE index
+  int<lower=0> T;                  // Number of years
+  real C[T];                       // Catch biomass
+  real I[T];                       // CPUE index
 }
 parameters {
-  real<lower=0> r;        // Intrinsic growth rate
-  real<lower=0> K;        // Carrying capacity
-  real<lower=0> sigma2;   // Process variance
-  real<lower=0> tau2;     // Observation variance
-  real<lower=0> P[T];     // Estimated population
+  real<lower=0> r;                 // Intrinsic growth rate
+  real<lower=0> K;                 // Carrying capacity
+  real<lower=0> sigma2;            // Process variance
+  real<lower=0> tau2;              // Observation variance
+  real u[T];                       // Process log-deviations
 }
 
 transformed parameters {
   real<lower=0> sigma;
   real<lower=0> tau;
+  real<lower=0> Pmed[T];
+  real<lower=0> P[T];
   real Z[T];
   real log_q_hat;
 
   sigma = sqrt(sigma2);
   tau = sqrt(tau2);
+
+  // Noncentered population deviations
+  Pmed[1] = 1;
+  P[1] = Pmed[1] * exp(u[1] * sigma);
+  for (t in 2:T) {
+    Pmed[t] = fmax(P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) -
+                   C[t - 1] / K,
+                   0.001);
+    P[t] = Pmed[t] * exp(u[t] * sigma);
+  }
 
   // Calculate "log q" for each year
   for (t in 1:T) {
@@ -28,25 +40,12 @@ transformed parameters {
 }
 
 model {
-  vector[T] Pmed;
-  vector[T] Imed;
-
   K ~ lognormal(5.042905, 1 / sqrt(3.7603664));
   r ~ lognormal(-1.38, 1 / sqrt(3.845));
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
 
-  // Set initial state
-  Pmed[1] = 0;
-  P[1] ~ lognormal(Pmed[1], sigma);
-
-  // Biomass dynamics
-  for (t in 2:T) {
-    Pmed[t] = log(fmax(P[t - 1] + (r * P[t - 1]) * (1 - P[t - 1]) -
-                       C[t - 1] / K,
-                       0.00001));
-    P[t] ~ lognormal(Pmed[t], sigma);
-  }
+  u ~ normal(0, 1);
 
   // Likelihood
   /* NOTE: This will give a warning about using a transformed variable on the
@@ -78,4 +77,3 @@ generated quantities {
   MSY = r * K / 4;
   /* EMSY = r / (2 * q); */
 }
-

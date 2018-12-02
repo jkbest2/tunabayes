@@ -1,16 +1,16 @@
 data {
-  int<lower=0> T; // Number of years
-  real C[T];      // Catch
-  real I[T];      // CPUE index
+  int<lower=0> T;                  // Number of years
+  real C[T];                       // Observed catch
+  real I[T];                       // CPUE index
 }
 
 parameters {
-  real<lower=0> r;
-  real<lower=0> K;
-  real<lower=0> q;
-  real<lower=0> sigma2;
-  real<lower=0> tau2;
-  real u[T];
+  real<lower=0> r;                 // Population growth
+  real<lower=0> K;                 // Carrying capacity
+  real<lower=0> q;                 // Catchability
+  real<lower=0> sigma2;            // Process variance
+  real<lower=0> tau2;              // Observation variance
+  real u[T];                       // Process log-deviations
 }
 
 transformed parameters {

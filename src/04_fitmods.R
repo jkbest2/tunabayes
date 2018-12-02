@@ -18,15 +18,17 @@ fitmod <- function(file, control) {
 adj_control = list(adapt_delta = 0.975)
 exF_control = list(max_treedepth = 15L)
 
-mod_df <- tribble(~ model_name,   ~ model_file,   ~ control,
-                   "Truncated", "00_truncated",        NULL,
-                    "Centered",  "01_centered",        NULL,
-           "Centered Adjusted",  "01_centered", adj_control,
-                 "Noncentered",    "10_ncproc",        NULL,
-             "Noncentered Adj",    "10_ncproc", adj_control,
-              "Marginalized q",     "20_margq",        NULL,
-          "Marginalized q Adj",     "20_margq", adj_control,
-                  "Explicit F",       "30_exF", exF_control)
+mod_df <- tribble(  ~ model_name,      ~ model_file,   ~ control,
+                     "Truncated",    "00_truncated",        NULL,
+                      "Centered",     "01_centered",        NULL,
+             "Centered Adjusted",     "01_centered", adj_control,
+                   "Noncentered",       "10_ncproc",        NULL,
+               "Noncentered Adj",       "10_ncproc", adj_control,
+                "Marginalized q",        "20_margq",        NULL,
+            "Marginalized q Adj",        "20_margq", adj_control,
+    "Marginalized q noncentered", "21_margq_ncproc",        NULL,
+"Marginalized q noncentered adj", "21_margq_ncproc", adj_control,
+                    "Explicit F",          "30_exF", exF_control)
 
 mod_df %>%
   mutate(model_path = paste0("src/models/", model_file, ".stan"),

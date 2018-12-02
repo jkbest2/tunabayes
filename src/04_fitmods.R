@@ -16,21 +16,17 @@ fitmod <- function(file, control) {
 }
 
 adj_control = list(adapt_delta = 0.975)
+exF_control = list(max_treedepth = 15L)
 
-mod_df <- tribble(~ model_name,          ~ model_file,   ~ control,
-                   "Truncated",        "0_Schaefer_T",        NULL,
-                    "Centered",        "1_Schaefer_C",        NULL,
-           "Centered Adjusted",        "1_Schaefer_C", adj_control,
-       "Noncentered Lognormal",       "3_Schaefer_PL",        NULL,
-   "Noncentered Lognormal Adj",       "3_Schaefer_PL", adj_control,
-          "Noncentered Normal",       "6_Schaefer_PN",        NULL,
-      "Noncentered Normal Adj",       "6_Schaefer_PN", adj_control,
-              "Marginalized q",   "7_Schaefer_marg_q",        NULL,
-          "Marginalized q Adj",   "7_Schaefer_marg_q", adj_control,
-          "Explicit catch add",    "8_Schaefer_exp_F",        NULL,
-      "Explicit catch add adj",    "8_Schaefer_exp_F", adj_control,
-            "Exp catch nc add", "9_Schaefer_exp_F_nc",        NULL,
-        "Exp catch nc add adj", "9_Schaefer_exp_F_nc", adj_control)
+mod_df <- tribble(~ model_name,   ~ model_file,   ~ control,
+                   "Truncated", "00_truncated",        NULL,
+                    "Centered",  "01_centered",        NULL,
+           "Centered Adjusted",  "01_centered", adj_control,
+                 "Noncentered",    "10_ncproc",        NULL,
+             "Noncentered Adj",    "10_ncproc", adj_control,
+              "Marginalized q",     "20_margq",        NULL,
+          "Marginalized q Adj",     "20_margq", adj_control,
+                  "Explicit F",       "30_exF", exF_control)
 
 mod_df %>%
   mutate(model_path = paste0("src/models/", model_file, ".stan"),

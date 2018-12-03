@@ -4,7 +4,7 @@ library(tidyverse)
 
 ##-Model fits-------------------------------------------------------------------
 
-fit_datetime <- "2018-11-13 05:22:19"
+fit_datetime <- "2018-12-02 15:51:23"
 load(paste0("results/", fit_datetime, "_fits.Rdata"))
 
 post_df <- fit_df %>%

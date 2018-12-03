@@ -1,0 +1,420 @@
+---
+title: Reparameterizing Bayesian state-space models for more reliable fits
+author: John Best
+output: ioslides_presentation
+---
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(rstan)
+
+source("../src/01_setup.R")
+source("../src/02_fitfns.R")
+
+## Model fits under different parameterizations
+fit_datetime <- "2018-12-02 15:51:23"
+load(paste0("../results/", fit_datetime, "_fits.Rdata"))
+
+## Catch SD sensitivity fits
+csd_datetime <- "2018-12-02 23:38:03"
+load(paste0("../results/", csd_datetime, "_csd.Rdata"))
+
+knitr::opts_chunk$set(echo = FALSE,
+                      fig.width = 8)
+```
+
+## Objective
+
+Translate nonlinear state-space model from BUGS to Stan and diagnose potential problems in the posterior.
+
+Model from two papers:
+
+- Meyer, Renate and Russell B. Millar. 1999. BUGs in Bayesian Stock assessments. *Canadian Journal of Fisheries and Aquatic Sciences*. 56:1078-1086.
+- Millar, Russell B. and Renate Meyer. 2000. Non-linear state space modelling of fisheries biomass dynamics by using Metropolis-Hastings within-Gibbs sampling. *Applied Statistics*. 49, Part 3: 327-342.
+
+<div class="notes">
+- Used broadly
+- JABBA
+- Tried to keep as close to the paper as possible so far (e.g. haven't tried different priors)
+</div>
+
+## Model: Data
+
+```{r}
+data_frame(Year = 1:23,
+           catch = tuna_data$C) %>%
+  ggplot(aes(x = Year, y = catch)) +
+  geom_line(size = 2) +
+  labs(title = "Catch of South Atlantic Albacore", y = "Catch biomass") +
+  plottheme
+```
+
+## Model: Data
+
+```{r}
+data_frame(Year = 1:23,
+           cpue = tuna_data$I) %>%
+  ggplot(aes(x = Year, y = cpue)) +
+  geom_line(size = 2) +
+  labs(title = "CPUE of South Atlantic Albacore", y = "CPUE Index") +
+  plottheme
+```
+
+<!-- ![Albacore](../figs/albacore.png) -->
+
+<div class="notes">
+- South Atlantic Albacore tuna data set
+- Taken from Meyer & Millar papers
+</div>
+
+## Model: Observation
+
+$I_t$ is an index of biomass $B_t$. These are related through the parameter $q$, catchability.
+
+$$I_t = q B_t.$$
+
+Nondimensionalizing $B_t$ against carrying capacity $K$ gives $P_t = B_t / K$, observed with log-normal noise with standard deviation $\tau$.
+
+$$\begin{aligned}
+I_t \mid P_t,q,\tau^2 &= q K P_t e^{v_t}\\
+v_t &\sim \operatorname{Normal}(0, \tau^2).
+\end{aligned}$$
+
+<div class="notes">
+- I_t is then log-normally distributed
+- Will come back to this; can be represented multiple ways
+</div>
+
+## Model: Population dynamics
+
+- Schaefer dynamics
+- Intrinsic growth rate $r$
+- log-Normal error with sd $\sigma$
+- $P_1$ near $1$
+
+$$\begin{aligned}
+P_1 \mid \sigma^2 &= e^{u_1}\\
+P_t \mid P_{t-1},K,r,\sigma^2 &= \left[ P_{t-1} + r P_{t-1}(1 - P_{t-1})
+    - \frac{C_{t-1}}{K} \right]e^{u_t}\\
+u_t &\sim \operatorname{Normal}(0, \sigma^2),
+\end{aligned}$$
+
+## Model: Priors
+
+All but $q$ at least somewhat informative, based on literature review. Specified $\log(q) \sim \operatorname{Flat}$.
+
+$$\begin{aligned}
+r &\sim \operatorname{log Normal}(-1.38, 0.51^2)\\
+K &\sim \operatorname{log Normal}(5.04, 0.5162^2)\\
+p(q) &\propto 1/q\\
+\sigma^2 &\sim \operatorname{Inverse Gamma}(3.79, 0.0102)\\
+\tau^2 &\sim \operatorname{Inverse Gamma}(1.71, 0.0086).
+\end{aligned}$$
+
+## Model: BUGs Approximations
+
+- Truncated priors
+- Approximate $p(q)$ with inverse-gamma.
+- Problems in Stan
+
+<center><img src="../figs/WinBUGSlogo.jpg"/></center>
+
+<div class="notes">
+- Stan uses gradient information, so likes smooth differentiable posteriors
+- Transforms everything to unconstrained scale, but truncations still often cause problems
+- Can't directly code densities in BUGS as you can in Stan
+</div>
+
+## Stan: No-U-Turn Sampler
+
+- Hamiltonian dynamics
+- Self-tuning
+
+[NUTS Simulator](https://chi-feng.github.io/mcmc-demo/app.html#EfficientNUTS,banana)
+
+- **Divergences**: too much curvature
+- **Max treedepth exceeded**: too flat
+
+## Comparing model parameterizations
+
+- Truncated: Original BUGs model fit in Stan
+- Centered
+- Noncentered Normal process errors
+- Marginalized $q$
+- Explicit fishing mortality
+
+## Noncentered Normal process errors
+
+$$\begin{aligned}
+  P_1 \mid \sigma^2 &= \exp(u_1 \sigma)\\
+  P_t \mid P_{t-1},\dots &= \bigg[ P_{t-1} + r P_{t-1}(1 - P_{t-1}) \\
+      & \quad \quad \quad \quad - \frac{C_{t-1}}{K} \bigg] \exp(u_t \sigma)\\
+  u_t &\sim \operatorname{Normal}(0, 1)
+  \end{aligned}$$
+
+## Marginalized $q$
+
+$$\begin{aligned}
+  Z_i &= \log\left( \frac{I_i}{P_i K} \right)\\
+  \hat{q}' &= \frac{1}{n} \sum_i Z_i\\
+  Z_i &\sim \operatorname{Normal}(\hat{q}', \tau^2)
+  \end{aligned}$$
+
+From Walters & Ludwig (1994), *Calculation of Bayes posterior probability distributions for key populations parameters*.
+
+<div class="notes">
+- $\hat{q}'$ is MLE of $\log q$
+- Prior on $q$ also eliminated
+</div>
+
+## Explicit F parameterization
+
+$$\begin{aligned}
+  C^*_t = &\exp(-F_t) K P_t\\
+  C_t \sim &\operatorname{Normal}(C^*_t, \xi^2)\\
+  P_1 \mid \sigma^2 = &e^{u_1}\\
+  P_t \mid P_{t-1},\dots = &\left[ P_{t-1} + r P_{t-1}(1 - P_{t-1})\right]\\
+  &\times (1 - \exp(-F_{t-1}))\\
+  &\times \exp(u_t)\\
+  u_t &\sim \operatorname{Normal}(0, \sigma^2)\\
+  \end{aligned}$$
+
+<div class="notes">
+- ERROR HERE - Not what I coded; catches don't *quite* match
+- Additive error on observed catch
+- $xi$ is fixed; don't have any information on it
+- Test sensitivity later
+- Catch occurs *after* production
+</div>
+  
+## Explicit F parameterization
+
+$$\begin{aligned}
+  C^*_t = &\exp(-F_t) K \left[P_t + r P_t (1 - P_t)\right]\\
+  C_t \sim &\operatorname{Normal}(C^*_t, \xi^2)\\
+  P_1 \mid \sigma^2 = &e^{u_1}\\
+  P_t \mid P_{t-1},\dots = &\left[ P_{t-1} + r P_{t-1}(1 - P_{t-1})\right]\\
+  &\times (1 - \exp(-F_{t-1}))\\
+  &\times \exp(u_t)\\
+  u_t &\sim \operatorname{Normal}(0, \sigma^2)\\
+  \end{aligned}$$
+
+<div class="notes">
+- ERROR HERE - Not what I coded; catches don't *quite* match
+- Additive error on observed catch
+- $xi$ is fixed; don't have any information on it
+- Test sensitivity later
+- Catch occurs *after* production
+</div>
+## Run specifications
+
+- $4$ chains
+- $10,000$ iterations
+- $5,000$ warmup iterations
+- $20,000$ inference iterations
+
+## Results: Full series diagnostics
+
+|                    |  Exc Treedepth |  Exc Treedepth Adj |  Divergences |  Divergences Adj |
+| :----------------- | -------------: | -----------------: | -----------: | ---------------: |
+| Truncated          |              0 |                    |    **14648** |                  |
+| Centered           |              0 |                  0 |           13 |                0 |
+| Noncentered        |             35 |               7129 |          146 |                4 |
+| Marginal q         |              0 |                  0 |           46 |                0 |
+| Marginal q noncen  |              0 |              10000 |         1377 |               74 |
+| Explicit F         |          **0** |                    |        **0** |                  |
+
+<div class="notes">
+- Original model with truncations has *lots* of divergences!
+- Noncentering process error was not helpful
+- Marginalizing $q$ *may* have helped? No divergences after increasing adapt_delta!
+- Explicit catch may have helped
+- Adjusting ~adapt_delta~ always helped, sometimes resulted in exceeding max treedepth
+- Explicit F always had increased treedepth
+</div>
+
+## Results: Timing, unadjusted
+
+|                    |     Warmup |     Sample | **Min ESS Rate** |  Exp ESS Rate |
+| :----------------- | ---------: | ---------: |    ------------: | ------------: |
+| Truncated          |   70.23090 |   98.18090 |         3.906744 |      35.44550 |
+| Centered           |   51.19540 |   65.79570 |        26.277666 |     144.48313 |
+| Noncentered        |  243.05640 |  319.75060 |         8.190027 |      43.82854 |
+| Marginal q         |   26.14032 |   29.08037 |       112.765388 |     212.77523 |
+| Marginal q noncen  |  113.46060 |   69.48735 |        71.652046 |     153.68737 |
+| Explicit F         |  568.81600 |  748.31700 |         2.576744 |      12.60228 |
+
+## Results: Timing, adjusted
+
+|                        |    Warmup |    Sample | **Min ESS Rate** |  Exp ESS Rate |
+| :--------------------- | --------: | --------: |    ------------: | ------------: |
+| Centered adj           |  107.3862 |   98.9370 |       26.8749951 |     93.581213 |
+| Noncentered adj        |  523.3630 |  478.9535 |        5.2734152 |     29.525013 |
+| Marginal q adj         |   50.6163 |   54.0521 |       49.5456796 |     83.580600 |
+| Marginal q noncen adj  |  369.1227 |  292.9353 |        0.0068717 |      1.192989 |
+| Explicit F             | 568.81600 | 748.31700 |         2.576744 |      12.60228 |
+
+<div class="notes">
+- Generally slower
+</div>
+
+## Results: MSY
+
+```{r}
+msy_post <- fit_df %>%
+  transmute(model_name = factor(model_name, unique(model_name)),
+            MSY = map(fit, rstan::extract, pars = "MSY")) %>%
+  unnest() %>% unnest()
+
+msy_post %>%
+  filter(model_name %in% c("Truncated", "Centered", "Centered adj", "Marginal q", "Marginal q adj", "Explicit F")) %>%
+  ggplot(aes(x = MSY, color = model_name, fill = model_name)) +
+  geom_density(alpha = 0.2, size = 2) +
+  labs(title = "MSY Posteriors",
+       x = "Maximum Sustainable Yield", y = "Density",
+       color = "Model", fill = "Model") +
+  plottheme
+```
+
+## Results: Catch error sensitivity
+
+### Diagnostics
+
+| Catch error | Exc max treedepth | Divergence |  Min ESS | Par    |
+|-------------|-------------------|------------|----------|--------|
+|       0.010 |               614 |          0 | 1898.525 | `q`    |
+|       0.046 |                 0 |          0 | 1784.530 | `q`    |
+|        0.22 |                 0 |          0 | 1965.289 | `q`    |
+|         1.0 |                 0 |          0 | 2021.433 | `q`    |
+|         4.6 |                 0 |      19997 |    2.055 | `lp__` |
+|          22 |                 0 |      20000 |    2.012 | `K`    |
+|         100 |                 0 |      20000 |    2.027 | `q`    |
+
+## Results: Catch error sensitivity
+
+### Timing
+
+| Catch error | Sampling (s) | Min ESS Rate |
+|-------------|--------------|--------------|
+|       0.010 |        14065 |        0.134 |
+|       0.046 |         2819 |        0.633 |
+|       0.215 |          657 |        2.991 |
+|       1.000 |          186 |       10.849 |
+|       4.641 |           13 |        0.156 |
+|      21.544 |           13 |        0.150 |
+|     100.000 |           14 |        0.140 |
+
+## Results: Catch error sensitivity
+
+```{r}
+## Posterior densities - catches
+c_post <- csd_df %>%
+  filter(catch_sd < 1) %>%
+  transmute(catch_sd = factor(signif(catch_sd, 2), levels = signif(catch_sd, 2)),
+            `C_pred[1]` = map(fit, rstan::extract, pars = "C_pred[1]"),
+            `C_pred[8]` = map(fit, rstan::extract, pars = "C_pred[8]"),
+            `C_pred[16]` = map(fit, rstan::extract, pars = "C_pred[16]"),
+            `C_pred[23]` = map(fit, rstan::extract, pars = "C_pred[23]")) %>%
+  unnest() %>% unnest() %>%
+  gather(c_year, c_est, -catch_sd) %>%
+  mutate(c_year = factor(c_year, levels = c("C_pred[1]", "C_pred[8]",
+                                            "C_pred[16]", "C_pred[23]")))
+
+c_orig <- data_frame(c_year = factor(c("C_pred[1]", "C_pred[8]",
+                                       "C_pred[16]", "C_pred[23]"),
+                                     levels = c("C_pred[1]", "C_pred[8]",
+                                                "C_pred[16]", "C_pred[23]")),
+                     c_obs = tuna_data$C[c(1, 8, 16, 23)])
+
+c_post %>%
+  ggplot(aes(x = c_est, color = catch_sd, fill = catch_sd)) +
+  geom_density() +
+  facet_wrap(~ c_year, scales = "free") +
+  geom_vline(aes(xintercept = c_obs), data = c_orig,
+             alpha = 0.5, size = 1, linetype = "dashed") +
+  labs(title = "Example catch posteriors",
+       x = "Catch biomass", y = "Density",
+       color = "Catch SD", fill = "Catch SD") +
+  plottheme
+```
+
+## Results: Catch error sensitivity
+
+```{r}
+## Posterior densities - Biomass
+b_post <- csd_df %>%
+  filter(catch_sd < 4) %>%
+  transmute(catch_sd = factor(signif(catch_sd, 2), levels = signif(catch_sd, 2)),
+            `Biomass[1]` = map(fit, rstan::extract, pars = "Biomass[1]"),
+            `Biomass[8]` = map(fit, rstan::extract, pars = "Biomass[8]"),
+            `Biomass[16]` = map(fit, rstan::extract, pars = "Biomass[16]"),
+            `Biomass[23]` = map(fit, rstan::extract, pars = "Biomass[23]")) %>%
+  unnest() %>% unnest() %>%
+  gather(b_year, b_post, -catch_sd) %>%
+  mutate(b_year = factor(b_year, levels = c("Biomass[1]", "Biomass[8]",
+                                            "Biomass[16]", "Biomass[23]")))
+
+b_post %>%
+  ggplot(aes(x = b_post, color = catch_sd, fill = catch_sd)) +
+  geom_density(alpha = 0.25, size = 1) +
+  facet_wrap(~ b_year, scales = "free") +
+  labs(title = "Example biomass posteriors",
+       x = "Biomass",
+       y = "Density",
+       fill = "Catch SD", color = "Catch SD") +
+  plottheme
+```
+
+## Results: Catch error sensitivity
+
+```{r}
+## Posterior - Biomass series
+b_series <- csd_df %>%
+  filter(catch_sd < 4) %>%
+  transmute(`Catch SD` = factor(signif(catch_sd, 2), levels = signif(catch_sd, 2)),
+            bseries = map(fit, as.data.frame, pars = "Biomass")) %>%
+  unnest() %>%
+  gather(b_year, b_post, -`Catch SD`) %>%
+  mutate(year = map_dbl(b_year, ~ as.numeric(substr(.x, 9, nchar(.x) - 1L)))) %>%
+  group_by(`Catch SD`, year) %>%
+  summarize(p025 = quantile(b_post, 0.025),
+            p25 = quantile(b_post, 0.25),
+            p50 = median(b_post),
+            p75 = quantile(b_post, 0.75),
+            p975 = quantile(b_post, 0.975))
+
+b_series %>%
+  ggplot(aes(x = year, y = p50,
+             color = `Catch SD`, fill = `Catch SD`)) +
+  geom_linerange(aes(ymin = p025, ymax = p975),
+                 size = 1, position = position_dodge(width = 0.9)) +
+  geom_linerange(aes(ymin = p25, ymax = p75),
+                 size = 2, position = position_dodge(width = 0.9)) +
+  geom_point(position = position_dodge(width = 0.9),
+             shape = "-", size = 10, color = "black") +
+  labs(title = "Biomass series posteriors",
+       x = "Year", y = "Biomass",
+       color = "Catch SD", fill = "Catch SD") +
+  plottheme
+```
+
+## Results: Catch error sensitivity
+
+```{r}
+## Posterior densities - MSY
+msy_post <- csd_df %>%
+  filter(catch_sd < 4) %>%
+  transmute(catch_sd = factor(catch_sd, levels = catch_sd),
+            MSY = map(fit, extract, pars = "MSY")) %>%
+  unnest() %>% unnest()
+
+msy_post %>%
+  ggplot(aes(x = MSY, color = catch_sd, fill = catch_sd)) +
+  geom_density(alpha = 0.2, size = 2) +
+  labs(title = "MSY Posterior and catch error",
+       x = "Maximum Sustainable Yield", y = "Density",
+       color = "Catch SD", fill = "Catch SD") +
+  plottheme
+```
+
+# Thanks!

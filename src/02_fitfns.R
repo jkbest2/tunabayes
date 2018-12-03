@@ -13,6 +13,13 @@ stanfit_parcoord <- function(stanfit, transform = scale,
                 np = np, np_style = np_style, ...)
 }
 
+plottheme <- theme(axis.title = element_text(size = 20),
+                   axis.text = element_text(size = 16),
+                   strip.text = element_text(size = 20),
+                   title = element_text(size = 24),
+                   legend.title = element_text(size = 16),
+                   legend.text = element_text(size = 14))
+
 ## Initial value function for exF models
 init_expF <- function(chain) {
   list(r = rlnorm(1, -1.38, 1 / sqrt(3.845)),

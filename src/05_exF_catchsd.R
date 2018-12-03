@@ -16,7 +16,7 @@ chain_spec <- list(n_iter = 1e4,
 exF_control = list(max_treedepth = 15L)
 
 ## Standard deviations to try for catch, from 2e-3 to 200
-catch_sd <- 10^(seq(-1, 1, length.out = 5L))
+catch_sd <- 10^(seq(-2, 2, length.out = 7L))
 
 catch_sd_data <- function(catch_sd) {
   td2 <- tuna_data

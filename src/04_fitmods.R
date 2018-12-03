@@ -9,10 +9,6 @@ chain_spec <- list(n_iter = 1e4,
                    n_warm = 5e3,
                    n_chain = 4)
 
-chain_spec <- list(n_iter = 200,
-                   n_warm = 100,
-                   n_chain = 1L)
-
 ## Control with increased `adapt_delta` to try to eliminate divergences
 adj_control = list(adapt_delta = 0.975)
 ## Explicit F flattens posterior so much that it needs a larger treedepth

@@ -1,73 +1,69 @@
 data {
-  int<lower=0> T; // Number of years
-  real C[T];      // Catch
-  real I[T];      // CPUE index
+  int<lower=0> T;                  // Number of years
+  vector[T] C;                     // Observed catch
+  vector[T] I;                     // CPUE index
 }
+
 parameters {
-  real<lower=0> r;
-  real<lower=0> K;
-  real<lower=0> q;
-  real<lower=0> sigma2;
-  real<lower=0> tau2;
-  real<lower=0> P[T];
+  real<lower=0> r;                 // Population growth
+  real<lower=0> K;                 // Carrying capacity
+  real<lower=0> q;                 // Catchability
+  real<lower=0> sigma2;            // Process variability
+  real<lower=0> tau2;              // Observation variability
+  vector<lower=0>[T] P;            // Predicted depletion
 }
 
 transformed parameters {
-  real<lower=0> sigma;
-  real<lower=0> tau;
+  real<lower=0> sigma;             // Transform to standard deviation
+  real<lower=0> tau;               // Transform to standard deviation
+  vector[T] P_med;                 // Median depletion; no process error
 
   sigma = sqrt(sigma2);
   tau = sqrt(tau2);
+
+  // Initial depletion and catch
+  P_med[1] = 1;
+  for (t in 2:T) {
+    // Note `fmax` here to keep depletion positive!
+    P_med[t] = fmax(P[t - 1] +
+                    r * P[t - 1] * (1 - P[t - 1]) -
+                    C[t - 1] / K,
+                    0.001);
+  }
 }
 
 model {
-  vector[T] Pmed;
-  vector[T] Imed;
-
   r ~ lognormal(-1.38, 1 / sqrt(3.845));
   K ~ lognormal(5.042905, 1 / sqrt(3.7603664));
   target += -log(q);
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
 
-  // Set initial state
-  Pmed[1] = 0;
-  P[1] ~ lognormal(Pmed[1], sigma);
-
-  // time steps of the model
-  for (t in 2:T) {
-    Pmed[t] = log(fmax(P[t - 1] + (r * P[t - 1]) * (1 - P[t - 1]) -
-                       C[t - 1] / K,
-                       0.00001));
-    P[t] ~ lognormal(Pmed[t], sigma);
-  }
-
   // Likelihood
-  for (t in 1:T) {
-    Imed[t] = log(q * K * P[t]);
-    I[t] ~ lognormal(Imed[t], tau);
-  }
+  P ~ lognormal(log(P_med), sigma);
+  I ~ lognormal(log(q * K * P), tau);
 }
 
 generated quantities {
-  vector[T] Imed;
-  vector[T] Inew;
-  vector[T + 1] Biomass;
-  real P24;
-  real MSY;
-  real EMSY;
+  vector[T + 1] Biomass;           // Biomass series with one step ahead prediction
+  real P_medfinal;                 // One step ahead median depletion
+  real P_final;                    // One step ahead depletion
+  real MSY;                        // Maximum sustainable yield
+  real FMSY;                       // Fishing mortality to achieve MSY
 
-  //posterior predictions (hint, the parameterization of dlnorm is not the same as in R)
+  // Calculate biomass at each time step from depletion and K, then simulate
+  // one step ahead and include that final biomass
   for (t in 1:T) {
-    Imed[t] = log(q * K * P[t]);
-    Inew[t] = lognormal_rng(Imed[t], tau);
     Biomass[t] = K * P[t];
   }
-  P24 = P[T] + r * P[T] * (1 - P[T]) - C[T] / K;
-  Biomass[T + 1] = K * P24;
+  // One-step-ahead projection, including process error
+  P_medfinal = fmax(P[T] + r * P[T] * (1 - P[T]) - C[T] / K,
+                    0.001);
+  P_final = lognormal_rng(log(P_medfinal), sigma);
+  Biomass[T + 1] = K * P_final;
 
-  // Other ouputs
+  // Management values
   MSY = r * K / 4;
-  EMSY = r / (2 * q);
+  FMSY = r / 2;
 }
 

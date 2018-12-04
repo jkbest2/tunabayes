@@ -1,87 +1,81 @@
 data {
   int<lower=0> T;                  // Number of years
-  real C[T];                   // Observed catch
-  real I[T];                       // CPUE index
+  vector[T] C;                     // Observed catch
+  vector[T] I;                     // CPUE index
   real catch_sd;                   // Standard deviation of catch obs; no data
                                    // to inform this so pass as data. Could be
                                    // worth trying a series of values.
 }
+
 parameters {
   real<lower=0> r;                 // Population growth
   real<lower=0> K;                 // Carrying capacity
   real<lower=0> q;                 // Catchability
-  real<lower=0> F[T];              // Instantaneous fishing mortality
+  vector<lower=0>[T] F;            // Instantaneous fishing mortality
   real<lower=0> sigma2;            // Process variability
   real<lower=0> tau2;              // Observation variability
-  real<lower=0> P[T];              // Predicted depletion
+  vector<lower=0>[T] P;            // Predicted depletion
 }
 
 transformed parameters {
   real<lower=0> sigma;             // Transform to standard deviation
   real<lower=0> tau;               // Transform to standard deviation
+  vector[T] P_med;                 // Median depletion; no process error
+  vector[T] C_pred;                // Predicted catch, after error
 
   sigma = sqrt(sigma2);
   tau = sqrt(tau2);
+
+  // Initial depletion and catch. Note that catch occurs *after* production
+  // here.
+  P_med[1] = 1;
+  C_pred[1] = K * (P[1] + r * P[1] * (1 - P[1])) * exp(-F[1]);
+
+  for (t in 2:T) {
+    // Again, catch occurs after production. On the depletion scale we can
+    // multiply by 1 - exp(-F) to get the fraction of biomass that does *not*
+    // experience fishing mortality. Last year's depletion, production, and then
+    // catch determine the median of the current year's depletion.
+    P_med[t] = (P[t - 1] + r * P[t - 1] * (1 - P[t - 1])) *
+      (1 - exp(-F[t - 1]));
+    // And current year catch depends on current depletion
+    C_pred[t] = K * (P[t] + r * P[t] * (1 - P[t])) * exp(-F[t]);
+  }
 }
 
 model {
-  vector[T] Pmed;
-  vector[T] Imed;
-  vector[T] C_pred;
-
-  // These priors match those specified in Meyer & Millar
+  // Priors specified in Meyer and Millar 1999
   r ~ lognormal(-1.38, 1 / sqrt(3.845));
   K ~ lognormal(5.042905, 1 / sqrt(3.7603664));
   target += -log(q);
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
-  /* F ~ normal(0, 3); */
 
-  // Set initial state
-  Pmed[1] = 1;
-  P[1] ~ lognormal(log(Pmed[1]), sigma);
-  C_pred[1] = K * P[1] * exp(-F[1]);
-
-  // time steps of the model
-  for (t in 2:T) {
-    // Catch occurs after production
-    Pmed[t] = (P[t - 1] + r * P[t - 1] * (1 - P[t - 1])) *
-      (1 - exp(-F[t - 1]));
-    P[t] ~ lognormal(log(Pmed[t]), sigma);
-    C_pred[t] = K * P[t] * exp(-F[t]);
-  }
-
-  for (t in 1:T) {
-    // CPUE likelihood
-    Imed[t] = log(q * K * P[t]);
-    I[t] ~ lognormal(Imed[t], tau);
-
-    // Catch likelihood
-    C[t] ~ normal(C_pred[t], catch_sd);
-  }
+  // Likelihoods
+  P ~ lognormal(log(P_med), sigma);
+  I ~ lognormal(log(q * K * P), tau);
+  C ~ normal(C_pred, catch_sd);
 }
 
 generated quantities {
-  vector[T] Imed;
-  vector[T] Inew;
-  vector[T] C_pred;
-  vector[T + 1] Biomass;
-  real P24;
-  real MSY;
-  real EMSY;
+  vector[T + 1] Biomass;           // Biomass series with one step ahead prediction
+  real P_medfinal;                 // One step ahead median depletion
+  real P_final;                    // One step ahead depletion
+  real MSY;                        // Maximum sustainable yield
+  real FMSY;                       // Fishing mortality to achieve MSY
 
-  //posterior predictions (hint, the parameterization of dlnorm is not the same as in R)
+  // Calculate biomass at each time step from depletion and K, then simulate
+  // one step ahead and include that final biomass
   for (t in 1:T) {
-    Imed[t] = log(q * K * P[t]);
-    Inew[t] = lognormal_rng(Imed[t], tau);
-    C_pred[t] = K * P[t] * exp(-F[t]);
     Biomass[t] = K * P[t];
   }
-  P24 = P[T] + r * P[T] * (1 - P[T]) - C_pred[T] / K;
-  Biomass[T + 1] = K * P24;
+  // One-step-ahead projection, including process error
+  P_medfinal = (P[T] + r * P[T] * (1 - P[T])) * (1 - exp(-F[T]));
+  P_final = lognormal_rng(log(P_medfinal), sigma);
+  Biomass[T + 1] = K * P_final;
 
   // Management values
   MSY = r * K / 4;
-  EMSY = r / (2 * q);
+  FMSY = r / 2;
 }
 

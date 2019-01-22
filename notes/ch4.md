@@ -43,11 +43,9 @@ $$P_{t + 1} = P_t + r P_t (1 - P_t) - \frac{C_t}{K}.$$
 
 Multiplicative (log-normal) process error with variance $\sigma^2$ is assumed for each year, with independence among years. The population dynamics process is then
 
-$$\begin{aligned}
-  P_1 &= \exp(u_1)\\
-  P_{t + 1} &= \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right] \exp(u_t)\\
-  u_t &\stackrel{\text{iid}}{\sim} \operatorname{Normal}(0, \sigma^2) & t = 1, \dots, T.
-  \end{aligned}$$
+$$P_1 = \exp(u_1)\\
+  P_{t + 1} = \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right] \exp(u_t)\\
+  u_t \stackrel{\text{iid}}{\sim} \operatorname{Normal}(0, \sigma^2) \quad t = 1, \dots, T.$$
 
 Catch per unit effort at time $t$, $I_t$, is used as an index of abundance under the assumption that it is proportional to available biomass through catchability $q$, so that
 
@@ -55,50 +53,40 @@ $$I_t = q B_t \quad t = 1, \dots, T.$$
 
 This is also subject to multiplicative error, with variance $\tau^2$. In terms of depletion, this gives
 
-$$\begin{aligned}
-  I_t &= q K P_t exp(v_t)\\
-  v_t &\stackrel{\text{iid}}{\sim} \operatorname{Normal}(0, \tau^2) \quad t= 1, \dots, T.
-  \end{aligned}$$
+$$I_t = q K P_t exp(v_t)\\
+  v_t \stackrel{\text{iid}}{\sim} \operatorname{Normal}(0, \tau^2) \quad t= 1, \dots, T.$$
 
 Priors match those used in @Meyer1999, which were based on a review of the literature, and an attempt to match particular quantiles (described in the appendix of @Meyer1999). The only noninformative prior is that for catchability. These are
 
-$$\begin{aligned}
-  r &\sim \operatorname{log Normal}(-1.38, 0.51^2)\\
-  K &\sim \operatorname{log Normal}(5.04, 0.5162^2)\\
-  p(q) &\propto 1/q\\
-  \sigma^2 &\sim \operatorname{Inverse Gamma}(3.79, 0.0102)\\
-  \tau^2 &\sim \operatorname{Inverse Gamma}(1.71, 0.0086).
-  \end{aligned}$$
+$$r \sim \operatorname{log Normal}(-1.38, 0.51^2)\\
+  K \sim \operatorname{log Normal}(5.04, 0.5162^2)\\
+  p(q) \propto 1/q\\
+  \sigma^2 \sim \operatorname{Inverse Gamma}(3.79, 0.0102)\\
+  \tau^2 \sim \operatorname{Inverse Gamma}(1.71, 0.0086).$$
 
 
 ### Centered model
 
 We used six parameterizations of the model. The *centered* model was a translation of the code in the appendix of @Meyer1999 to idiomatic Stan code. This parameterization used the model specified above. To avoid estimates of negative depletion and attempting to take the log of a negative number, a lower bound of $0.001$ is placed on the median depletion. The state likelihood is
 
-$$\begin{aligned}
-  \tilde{P}_1 &= 1\\
-  \tilde{P}_t &= \max\left(\begin{aligned}&P_{t - 1} + r P_{t - 1} (1 - P_{t - 1}) - C_t / K,\\ &0.001 \end{aligned}\right)\\
-  P_t &\sim \mathrm{log\ Normal}(\log(\tilde{P}_t), \sigma^2) &t = 1,\dots, T,
-  \end{aligned}$$
+$$\tilde{P}_1 = 1\\
+  \tilde{P}_t = \max\left(\begin{aligned}&P_{t - 1} + r P_{t - 1} (1 - P_{t - 1}) - C_t / K,\\ &0.001 \end{aligned}\right)\\
+  P_t \sim \mathrm{log\ Normal}(\log(\tilde{P}_t), \sigma^2) \quad t = 1,\dots, T,$$
   
 and the observation likelihood is
 
-$$\begin{aligned}
-  \tilde{I}_t &= q K P_t\\
-  I_t &\sim \operatorname{log\ Normal}(\log(\tilde{I}_t), \tau^2) & t = 1, \dots, T.
-  \end{aligned}$$
+$$\tilde{I}_t = q K P_t\\
+  I_t \sim \operatorname{log\ Normal}(\log(\tilde{I}_t), \tau^2) \quad t = 1, \dots, T.$$
 
 ### Truncated model
 
 The *truncated* parameterization is a translation of the model actually fit in @Meyer1999 as closely as possible to Stan. This required adding truncations to the priors on $r$, $K$, and $1 / q$. These were added to allow the BUGS software available at the time to sample from a log-concave full conditional posterior distribution. Note that the specified prior on $q$ was approximated using a $\operatorname{Gamma}$ distribution here. The $\operatorname{Inverse\ Gamma}$ distribution was not available in BUGS, so $\operatorname{Gamma}$ priors were placed on the process precision and observation precision. Truncations were not specified for these parameters. Priors were specified as
 
-$$\begin{aligned}
-  r \sim &\operatorname{log Normal}(-1.38, 1 / 3.845) &0.01 < r < 1.2\\
-  K \sim &\operatorname{log Normal}(5.042905, 1 / 3.7603664) &10 < K < 1000\\
-  1 / q \sim &\operatorname{Gamma}(0.001, 0.001) &0.5 < 1 / q < 100\\
-  \sigma^{-2} \sim &\operatorname{Gamma}(3.785518, 0.010223)\\\
-  \tau^{-2} \sim &\operatorname{Gamma}(1.708603, 0.008613854)
-\end{aligned}$$
+$$r \sim \operatorname{log Normal}(-1.38, 1 / 3.845) \quad 0.01 < r < 1.2\\
+  K \sim \operatorname{log Normal}(5.042905, 1 / 3.7603664) \quad 10 < K < 1000\\
+  1 / q \sim \operatorname{Gamma}(0.001, 0.001) \quad 0.5 < 1 / q < 100\\
+  \sigma^{-2} \sim \operatorname{Gamma}(3.785518, 0.010223)\\\
+  \tau^{-2} \sim \operatorname{Gamma}(1.708603, 0.008613854)$$
 
 The depletion parameters (the state variables) were also assigned truncated priors, where
 
@@ -124,19 +112,15 @@ Ensures that the subsequent $\tilde{P}_{t+1}$ will be nonnegative. These constra
 
 Noncentering [@Papaspiliopoulos2007] is a technique that is commonly used in additive hierarchical models to improve sampler efficiency and reduce potential parameter bias [@Betancourt2015]. Noncentering decorrelates the sampled parameters without changing the posterior. In this case, we noncenter the process noise, so that the biomass dynamics take the form
 
-$$\begin{aligned}
-  \tilde{P}_{t+1} &= \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right]\exp(\sigma u_t)\\
-  u_t &\sim \operatorname{Normal}(0, 1) & t = 1,\dots,T.
-  \end{aligned}$$
+$$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right]\exp(\sigma u_t)\\
+  u_t \sim \operatorname{Normal}(0, 1) \quad t = 1,\dots,T.$$
  
 ### Marginalized catchability
 
 The prior on catchability takes a form that is amenable to marginalization. Following @Walters1994, we calculate
 
-$$\begin{aligned}
-  Z_t &= \log\left(\frac{I_t}{P_t K}\right) &t = 1,\dots,T\\
-  \hat{q}' &= \frac{\sum_t Z_t}{T},
-  \end{aligned}$$ {#eq:margq_vals}
+$$Z_t = \log\left(\frac{I_t}{P_t K}\right) \quad t = 1,\dots,T\\
+  \hat{q}' = \frac{\sum_t Z_t}{T},$$ {#eq:margq_vals}
 
 and
 
@@ -150,11 +134,9 @@ Another way to eliminate predictions of negative depletion is to estimate fishin
 
 Because catch is estimated here, it is important to consider the biomass pool that is being fished. Here we assume that fishing occurs on the biomass pool *after* production has occurred. For instantaneous fishing mortality $F_t$, this gives biomass dynamics
 
-$$\begin{aligned}
-  \tilde{P}_1 = &1\\
-  \tilde{P}_{t+1} = &\left[P_t + r P_t (1 - P_t)\right] \\
-    &- \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t) &t = 1,\dots,T,
-  \end{aligned}$$
+$$\tilde{P}_1 = 1\\
+  \tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right] \\
+    \quad - \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t) \quad t = 1,\dots,T,$$
   
 where the second equation simplifies to
 
@@ -162,10 +144,8 @@ $$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right](1 - \exp(-F_t)).$$ {#eq:e
 
 In this way the predicted depletion can only be negative due to density dependence, because fishing only ever takes a *proportion* of the exisiting biomass. For a fixed catch observation variance $\xi^2$,
 
-$$\begin{aligned}
-  C^*_t &= \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t)\\
-  C_t &\sim \operatorname{Normal}(C^*_t, \xi^2) &t=1,\dots,T.
-  \end{aligned}$$ {#eq:exF_catchlik}
+$$C^*_t = \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t)\\
+  C_t \sim \operatorname{Normal}(C^*_t, \xi^2) \quad t=1,\dots,T.$$ {#eq:exF_catchlik}
 
 Each $F_t$ receives the same prior,
 

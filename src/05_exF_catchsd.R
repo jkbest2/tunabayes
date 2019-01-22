@@ -17,9 +17,6 @@ set.seed(9448949)
 chain_spec <- list(n_iter = 2e4,
                    n_warm = 5e3,
                    n_chain = 6L)
-chain_spec <- list(n_iter = 2e3,
-                   n_warm = 5e1,
-                   n_chain = 6L)
 
 ## Explicit F flattens posterior so much that it needs a larger treedepth
 exF_control = list(max_treedepth = 15L)

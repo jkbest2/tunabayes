@@ -1,7 +1,7 @@
 data {
   int<lower=0> T;                  // Number of years
-  real C[T];                       // Observed catch
-  real I[T];                       // CPUE index
+  vector[T] C;                     // Observed catch
+  vector[T] I;                     // CPUE index
 }
 
 parameters {
@@ -10,14 +10,14 @@ parameters {
   real<lower=0> q;                 // Catchability
   real<lower=0> sigma2;            // Process variance
   real<lower=0> tau2;              // Observation variance
-  real u[T];                       // Process log-deviations
+  vector[T] u;                       // Process log-deviations
 }
 
 transformed parameters {
   real<lower=0> sigma;
   real<lower=0> tau;
-  real<lower=0> Pmed[T];
-  real<lower=0> P[T];
+  vector<lower=0>[T] Pmed;
+  vector<lower=0>[T] P;
 
   sigma = sqrt(sigma2);
   tau = sqrt(tau2);
@@ -42,28 +42,29 @@ model {
   target += -log(q);
 
   u ~ normal(0, 1);
-
-  for (t in 1:T) {
-    I[t] ~ lognormal(q * K * P[t], tau);
-  }
+  I ~ lognormal(log(q * K * P), tau);
 }
 
 generated quantities {
-  vector[T] Imed;
-  vector[T] Ipred;
-  vector[T] Biomass;
-  real MSY;
-  real EMSY;
+  vector[T + 1] Biomass;           // Biomass series with one step ahead prediction
+  real P_medfinal;                 // One step ahead median depletion
+  real P_final;                    // One step ahead depletion
+  real MSY;                        // Maximum sustainable yield
+  real FMSY;                       // Fishing mortality to achieve MSY
 
-  //posterior predictions (hint, the parameterization of dlnorm is not the same as in R)
+  // Calculate biomass at each time step from depletion and K, then simulate
+  // one step ahead and include that final biomass
   for (t in 1:T) {
-    Imed[t] = q * K * P[t];
-    Ipred[t] = lognormal_rng(Imed[t], tau);
     Biomass[t] = K * P[t];
   }
+  // One-step-ahead projection, including process error
+  P_medfinal = fmax(P[T] + r * P[T] * (1 - P[T]) - C[T] / K,
+                    0.001);
+  P_final = lognormal_rng(log(P_medfinal), sigma);
+  Biomass[T + 1] = K * P_final;
 
-  // Other ouputs
+  // Management values
   MSY = r * K / 4;
-  EMSY = r / (2 * q);
+  FMSY = r / 2;
 }
 

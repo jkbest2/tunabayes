@@ -13,22 +13,101 @@ stanfit_parcoord <- function(stanfit, transform = scale,
                 np = np, np_style = np_style, ...)
 }
 
-plottheme <- theme(axis.title = element_text(size = 20),
-                   axis.text = element_text(size = 16),
-                   strip.text = element_text(size = 20),
-                   title = element_text(size = 24),
-                   legend.title = element_text(size = 16),
-                   legend.text = element_text(size = 14))
+theme_jkb <- function(base_size = 11,
+                      title_family = "Rubik",
+                      base_family = "Montserrat") {
+  sizes <- c(8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32)
+  base_idx <- which(base_size == sizes)
+  theme(
+    text = element_text(family = base_family,
+                        size = base_size),
+    plot.margin = unit(c(0.5, 0.75, 0.5, 0.25), "cm"),
+    ## Title
+    title = element_text(family = title_family,
+                         size = sizes[base_idx + 3]),
+    ## Panel
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    ## Axes
+    axis.line = element_line(),
+    axis.title = element_text(family = title_family,
+                              size = sizes[base_idx + 1]),
+    axis.text = element_text(),
+    ## Facet labels
+    strip.text = element_text(size = sizes[base_idx + 1]),
+    strip.background = element_blank(),
+    ## Legend labels
+    legend.title = element_text(family = title_family,
+                                size = sizes[base_idx + 1]),
+    legend.text = element_text(),
+    legend.key = element_blank())
+}
 
-## Initial value function for exF models
-init_expF <- function(chain) {
+##-Initial value functions------------------------------------------------------
+## Most parameters are drawn from their priors, P uses the data (assuming that
+## I[1] is approximately P = 1) with some noise thrown in. Initial values for
+
+## Initial values for truncated and centered models
+init_cent <- function(chain_id) {
+  sigma2 <- 1 / rgamma(1, 3.785518, rate = 0.010223)
   list(r = rlnorm(1, -1.38, 1 / sqrt(3.845)),
        K = rlnorm(1, 5.042905, 1 / sqrt(3.7603664)),
-       q = runif(1, 0.01, 0.99),
+       q = runif(1, 0.15, 0.5),
+       sigma2 = sigma2,
+       tau2 = 1 / rgamma(1, 1.708603, rate = 0.008613854),
+       P = rlnorm(tuna_data$T,
+                  log(tuna_data$I / tuna_data$I[1]),
+                  sqrt(sigma2)))
+}
+
+## Initial values for noncentered models
+init_ncproc <- function(chain_id) {
+  sigma2 <- 1 / rgamma(1, 3.785518, rate = 0.010223)
+  list(r = rlnorm(1, -1.38, 1 / sqrt(3.845)),
+       K = rlnorm(1, 5.042905, 1 / sqrt(3.7603664)),
+       q = runif(1, 0.15, 0.5),
+       sigma2 = sigma2,
+       tau2 = 1 / rgamma(1, 1.708603, rate = 0.008613854),
+       u = rnorm(tuna_data$T, 0, sqrt(sigma2)))
+}
+
+## Initial values for model with q marginalized out
+init_margq <- function(chain_id) {
+  sigma2 <- 1 / rgamma(1, 3.785518, rate = 0.010223)
+  list(r = rlnorm(1, -1.38, 1 / sqrt(3.845)),
+       K = rlnorm(1, 5.042905, 1 / sqrt(3.7603664)),
+       sigma2 = sigma2,
+       tau2 = 1 / rgamma(1, 1.708603, rate = 0.008613854),
+       P = rlnorm(tuna_data$T,
+                  log(tuna_data$I / tuna_data$I[1]),
+                  sqrt(sigma2)))
+}
+
+## Initial value function for exF models
+init_expF <- function(chain_id) {
+  sigma2 <- 1 / rgamma(1, 3.785518, rate = 0.010223)
+  list(r = rlnorm(1, -1.38, 1 / sqrt(3.845)),
+       K = rlnorm(1, 5.042905, 1 / sqrt(3.7603664)),
+       q = runif(1, 0.15, 0.5),
        F = runif(n_years, 1, 3),
-       sigma2 = 1 / rgamma(1, 3.785518, scale = 0.010223),
-       tau2 = 1 / rgamma(1, 1.708603, scale = 0.008613854),
-       P = 1 - 0.02 * 0:(n_years - 1L) + rnorm(n_years, 0, 0.1))
+       sigma2 = sigma2,
+       tau2 = 1 / rgamma(1, 1.708603, rate = 0.008613854),
+       P = rlnorm(tuna_data$T,
+                  log(tuna_data$I / tuna_data$I[1]),
+                  sqrt(sigma2)))
+}
+
+## Initial values for constrained P models
+init_constrP <- function(chain_id) {
+  sigma2 <- 1 / rgamma(1, 3.785518, rate = 0.010223)
+  list(r = rlnorm(1, -1.38, 1 / sqrt(3.845)),
+       K = rlnorm(1, 5.042905, 1 / sqrt(3.7603664)),
+       q = runif(1, 0.1, 0.5),
+       sigma2 = sigma2,
+       tau2 = 1 / rgamma(1, 1.708603, rate = 0.008613854),
+       P = rlnorm(tuna_data$T,
+                  log(tuna_data$I / tuna_data$I[1]),
+                  sqrt(sigma2)))
 }
 
 ## Retrieve a posterior sample and put in a list that can be used as initial
@@ -60,3 +139,4 @@ make_init_list <- function(n, post_list) {
   it <- sample(1:length(post_list$r), n)
   lapply(it, function(i) get_post_sample(i, post_list))
 }
+

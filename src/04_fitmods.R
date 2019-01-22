@@ -10,36 +10,37 @@ chain_spec <- list(n_iter = 2e4,
                    n_chain = 6L)
 
 ## Control with increased `adapt_delta` to try to eliminate divergences
-adj_control = list(adapt_delta = 0.975)
+adj_ad = list(adapt_delta = 0.975)
 ## Explicit F flattens posterior so much that it needs a larger treedepth
-exF_control = list(max_treedepth = 15L)
+adj_td = list(max_treedepth = 15L)
 
 mod_df <- tribble(
-  ~ model_name            ,   ~ model_file,   ~ control,   ~ init,
-  "Truncated"             , "00_truncated",        NULL, "random",
-  "Centered"              ,  "01_centered",        NULL, "random",
-  "Centered adj"          ,  "01_centered", adj_control, "random",
-  "Noncentered"           ,    "10_ncproc",        NULL, "random",
-  "Noncentered adj"       ,    "10_ncproc", adj_control, "random",
-  "Marginal q"            ,     "20_margq",        NULL, "random",
-  "Marginal q adj"        ,     "20_margq", adj_control, "random",
-  "Explicit F"            ,       "30_exF",        NULL, init_expF,
-  "Explicit F adj"        ,       "30_exF", exF_control, init_expF,
-  "Explicit F marg q"     , "30_exF_margq",        NULL, init_expF,
-  "Explicit F marg q adj" , "30_exF_margq", exF_control, init_expF,
-  "Constrained P"         ,   "40_constrP",        NULL,  "random",
-  "Constrained P adj"     ,   "40_constrP", adj_control,  "random")
+  ~ model_name       , ~ adj,   ~ model_file, ~ control,       ~ init,
+  "Truncated"        , FALSE, "00_truncated",      NULL,    init_cent,
+  "Truncated"        ,  TRUE, "00_truncated",    adj_ad,    init_cent,
+  "Centered"         , FALSE,  "01_centered",      NULL,    init_cent,
+  "Centered"         ,  TRUE,  "01_centered",    adj_ad,    init_cent,
+  "Noncentered"      , FALSE,    "10_ncproc",      NULL,  init_ncproc,
+  "Noncentered"      ,  TRUE,    "10_ncproc",    adj_ad,  init_ncproc,
+  "Marginal q"       , FALSE,     "20_margq",      NULL,   init_margq,
+  "Marginal q"       ,  TRUE,     "20_margq",    adj_ad,   init_margq,
+  "Explicit F"       , FALSE,       "30_exF",      NULL,    init_expF,
+  "Explicit F"       ,  TRUE,       "30_exF",    adj_td,    init_expF,
+  "Explicit F marg q", FALSE, "32_exF_margq",      NULL,    init_expF,
+  "Explicit F marg q",  TRUE, "32_exF_margq",    adj_td,    init_expF,
+  "Constrained P"    , FALSE,   "40_constrP",      NULL, init_constrP,
+  "Constrained P"    ,  TRUE,   "40_constrP",    adj_ad, init_constrP)
 
 ## Fit and save each of these models
 fit_df <- mod_df %>%
   mutate(model_path = paste0("src/models/", model_file, ".stan")) %>%
-  mutate(fit = pmap(., ~ stan(file = ..5,
+  mutate(fit = pmap(., ~ stan(file = ..6,
                               data = tuna_data,
                               chains = chain_spec$n_chain,
                               iter = chain_spec$n_iter,
                               warmup = chain_spec$n_warm,
-                              init = ..4,
-                              control = ..3)))
+                              init = ..5,
+                              control = ..4)))
 ## Pretty sure this is necessary to save `stanfit` objects so that you don't get
 ## weird errors when they are read back into R
 walk(fit_df$fit, function(f) f@stanmodel@dso <- new('cxxdso'))

@@ -59,12 +59,6 @@ transformed parameters {
   P_med[1] = 1;
   for (t in 2:T) {
     P_med[t] = P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) - C[t - 1] / K;
-    // We know this population is not extinct; reject parameter combinations
-    // that result in negative depletion.
-    if (P_med[t] < 0) reject("Negative depletion, P_med[", t, "] = ", P_med[t],
-                             " P[t - 1] = ", P[t - 1],
-                             " r = ", r,
-                             " K = ", K);
   }
 }
 
@@ -78,16 +72,19 @@ model {
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
 
-  // Add the log-Jacobian correction for the change of variables from P_raw to
-  // P. This is required because the bounds depend on the parameters r and K.
   for (t in 1:T) {
+    // Add the log-Jacobian correction for the change of variables from P_raw to
+    // P. This is required because the bounds depend on the parameters r and K.
     J_corr[t] = 0.5 * log((1 + r)^2 - 4 * r * C[t] / K) - log(r);
     target += J_corr[t];
+    // The `log` here is the practical reason to prevent `P_med[t]` from going
+    // negative. The Jacobian correction is necessary here because the
+    // constraints depend on other parameters. This also makes it necessary to
+    // declare the truncations in the sampling statement.
+    P[t] ~ lognormal(log(P_med[t]), sigma);
   }
 
-  // Likelihood
-  // This is the practical reason to require positive P_med values
-  P ~ lognormal(log(P_med), sigma);
+  // Observation likelihood
   I ~ lognormal(log(q * K * P), tau);
 }
 
@@ -113,4 +110,3 @@ generated quantities {
   MSY = r * K / 4;
   FMSY = r / 2;
 }
-

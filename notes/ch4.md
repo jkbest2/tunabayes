@@ -28,7 +28,7 @@ Tuning the step size and number of steps can be difficult in a posterior where t
 
 The sampler in Stan has a couple of parameters that can be tuned in an attempt to eliminate these warnings. The default values of these are set to maximize sampler efficiency in terms of number of effectively independent samples per second in most cases. The target acceptance rate indirectly controls the discretization error of the ordinary differential equation solution, and hence the step size. Smaller step sizes will result in proposals that are accepted more often, but will require more steps (and hence evaluations of the log posterior density) to travel the same distance in parameter space. Smaller steps will work in cases where there is a small region with larger gradients, but in models where the gradient increases without bound this will not be enough. In these cases it is usually necessary to reparameterize the model, for example by noncentering random effects [@Papaspiliopoulos2007; @Betancourt2015]. In Stan, target acceptance rate is controlled by the `adapt_delta` control argument, and defaults to $0.8$.
 
-The maximum number of steps taken each iteration is controlled by the maximum tree depth. In NUTS, proposal paths are built up in a binary tree, doubling the number of steps taken each time until a "u"-turn is reached. The default maximum tree depth is 10, meaning that the final branch in the binary tree will require $1,024$ log posterior density evaluations. This parameter is controlled by the `max_treedepth` control argument in Stan.
+The maximum number of steps taken each iteration is controlled by the maximum tree depth. In NUTS, proposal paths are built up in a binary tree, doubling the number of steps taken each time until a "U"-turn is reached. The default maximum tree depth is 10, meaning that the final branch in the binary tree will require $1,024$ log posterior density evaluations. This parameter is controlled by the `max_treedepth` control argument in Stan.
 
 Because Hamiltonian Monte Carlo schemes are dependent on gradient information, it is important that posteriors be continuous and differentiable when it is used. This means that models with discrete parameters cannot be fit using these techniques (though it is often possible to marginalize out discrete parameters). It also means that hard bounds on parameters may be more difficult to fit, even when all parameters are transformed to be sampled in an unconstrained space. The truncations used in @Meyer1999 then become a liability when fitting these models in Stan.
 
@@ -43,9 +43,9 @@ $$P_{t + 1} = P_t + r P_t (1 - P_t) - \frac{C_t}{K}.$$
 
 Multiplicative (log-normal) process error with variance $\sigma^2$ is assumed for each year, with independence among years. The population dynamics process is then
 
-$$P_1 = \exp(u_1)\\
-  P_{t + 1} = \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right] \exp(u_t)\\
-  u_t \stackrel{\text{iid}}{\sim} \operatorname{Normal}(0, \sigma^2) \quad t = 1, \dots, T.$$
+$$P_1 = \exp(u_1)$$
+$$P_{t + 1} = \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right] \exp(u_t)$$
+$$u_t \stackrel{\text{iid}}{\sim} \textrm{Normal}(0, \sigma^2) \quad t = 1, \dots, T.$$
 
 Catch per unit effort at time $t$, $I_t$, is used as an index of abundance under the assumption that it is proportional to available biomass through catchability $q$, so that
 
@@ -53,44 +53,44 @@ $$I_t = q B_t \quad t = 1, \dots, T.$$
 
 This is also subject to multiplicative error, with variance $\tau^2$. In terms of depletion, this gives
 
-$$I_t = q K P_t exp(v_t)\\
-  v_t \stackrel{\text{iid}}{\sim} \operatorname{Normal}(0, \tau^2) \quad t= 1, \dots, T.$$
+$$I_t = q K P_t exp(v_t)$$
+$$v_t \stackrel{\text{iid}}{\sim} \textrm{Normal}(0, \tau^2) \quad t= 1, \dots, T.$$
 
 Priors match those used in @Meyer1999, which were based on a review of the literature, and an attempt to match particular quantiles (described in the appendix of @Meyer1999). The only noninformative prior is that for catchability. These are
 
-$$r \sim \operatorname{log Normal}(-1.38, 0.51^2)\\
-  K \sim \operatorname{log Normal}(5.04, 0.5162^2)\\
-  p(q) \propto 1/q\\
-  \sigma^2 \sim \operatorname{Inverse Gamma}(3.79, 0.0102)\\
-  \tau^2 \sim \operatorname{Inverse Gamma}(1.71, 0.0086).$$
+$$r \sim \textrm{log Normal}(-1.38, 0.51^2)$$
+$$K \sim \textrm{log Normal}(5.04, 0.5162^2)$$
+$$p(q) \propto 1/q$$
+$$\sigma^2 \sim \textrm{Inverse Gamma}(3.79, 0.0102)$$
+$$\tau^2 \sim \textrm{Inverse Gamma}(1.71, 0.0086).$$
 
 
 ### Centered model
 
 We used six parameterizations of the model. The *centered* model was a translation of the code in the appendix of @Meyer1999 to idiomatic Stan code. This parameterization used the model specified above. To avoid estimates of negative depletion and attempting to take the log of a negative number, a lower bound of $0.001$ is placed on the median depletion. The state likelihood is
 
-$$\tilde{P}_1 = 1\\
-  \tilde{P}_t = \max\left(\begin{aligned}&P_{t - 1} + r P_{t - 1} (1 - P_{t - 1}) - C_t / K,\\ &0.001 \end{aligned}\right)\\
-  P_t \sim \mathrm{log\ Normal}(\log(\tilde{P}_t), \sigma^2) \quad t = 1,\dots, T,$$
+$$\tilde{P}_1 = 1$$
+$$\tilde{P}_t = \max\left(P_{t - 1} + r P_{t - 1} (1 - P_{t - 1}) - C_t / K, 0.001\right)$$
+$$P_t \sim \mathrm{log\ Normal}(\log(\tilde{P}_t), \sigma^2) \quad t = 1,\dots, T,$$
   
 and the observation likelihood is
 
-$$\tilde{I}_t = q K P_t\\
-  I_t \sim \operatorname{log\ Normal}(\log(\tilde{I}_t), \tau^2) \quad t = 1, \dots, T.$$
+$$\tilde{I}_t = q K P_t$$
+$$I_t \sim \textrm{log\ Normal}(\log(\tilde{I}_t), \tau^2) \quad t = 1, \dots, T.$$
 
 ### Truncated model
 
-The *truncated* parameterization is a translation of the model actually fit in @Meyer1999 as closely as possible to Stan. This required adding truncations to the priors on $r$, $K$, and $1 / q$. These were added to allow the BUGS software available at the time to sample from a log-concave full conditional posterior distribution. Note that the specified prior on $q$ was approximated using a $\operatorname{Gamma}$ distribution here. The $\operatorname{Inverse\ Gamma}$ distribution was not available in BUGS, so $\operatorname{Gamma}$ priors were placed on the process precision and observation precision. Truncations were not specified for these parameters. Priors were specified as
+The *truncated* parameterization is a translation of the model actually fit in @Meyer1999 as closely as possible to Stan. This required adding truncations to the priors on $r$, $K$, and $1 / q$. These were added to allow the BUGS software available at the time to sample from a log-concave full conditional posterior distribution. Note that the specified prior on $q$ was approximated using a $\textrm{Gamma}$ distribution here. The $\textrm{Inverse\ Gamma}$ distribution was not available in BUGS, so $\textrm{Gamma}$ priors were placed on the process precision and observation precision. Truncations were not specified for these parameters. Priors were specified as
 
-$$r \sim \operatorname{log Normal}(-1.38, 1 / 3.845) \quad 0.01 < r < 1.2\\
-  K \sim \operatorname{log Normal}(5.042905, 1 / 3.7603664) \quad 10 < K < 1000\\
-  1 / q \sim \operatorname{Gamma}(0.001, 0.001) \quad 0.5 < 1 / q < 100\\
-  \sigma^{-2} \sim \operatorname{Gamma}(3.785518, 0.010223)\\\
-  \tau^{-2} \sim \operatorname{Gamma}(1.708603, 0.008613854)$$
+$$r \sim \textrm{log Normal}(-1.38, 1 / 3.845) \quad 0.01 < r < 1.2$$
+$$K \sim \textrm{log Normal}(5.042905, 1 / 3.7603664) \quad 10 < K < 1000$$
+$$1 / q \sim \textrm{Gamma}(0.001, 0.001) \quad 0.5 < 1 / q < 100$$
+$$\sigma^{-2} \sim \textrm{Gamma}(3.785518, 0.010223)$$
+$$\tau^{-2} \sim \textrm{Gamma}(1.708603, 0.008613854).$$
 
 The depletion parameters (the state variables) were also assigned truncated priors, where
 
-$$P_t \sim \operatorname{log\ Normal}(\tilde{P}_t, \sigma^2) \quad t = 1,\dots,T.$$
+$$P_t \sim \textrm{log\ Normal}(\tilde{P}_t, \sigma^2) \quad t = 1,\dots,T.$$
  
 ### Constrained depletion
 
@@ -112,19 +112,19 @@ Ensures that the subsequent $\tilde{P}_{t+1}$ will be nonnegative. These constra
 
 Noncentering [@Papaspiliopoulos2007] is a technique that is commonly used in additive hierarchical models to improve sampler efficiency and reduce potential parameter bias [@Betancourt2015]. Noncentering decorrelates the sampled parameters without changing the posterior. In this case, we noncenter the process noise, so that the biomass dynamics take the form
 
-$$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right]\exp(\sigma u_t)\\
-  u_t \sim \operatorname{Normal}(0, 1) \quad t = 1,\dots,T.$$
+$$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right]\exp(\sigma u_t)$$
+$$u_t \sim \textrm{Normal}(0, 1) \quad t = 1,\dots,T.$$
  
 ### Marginalized catchability
 
 The prior on catchability takes a form that is amenable to marginalization. Following @Walters1994, we calculate
 
-$$Z_t = \log\left(\frac{I_t}{P_t K}\right) \quad t = 1,\dots,T\\
-  \hat{q}' = \frac{\sum_t Z_t}{T},$$ {#eq:margq_vals}
+$$Z_t = \log\left(\frac{I_t}{P_t K}\right) \quad t = 1,\dots,T$$
+$$\hat{q}' = \frac{\sum_t Z_t}{T},$$ {#eq:margq_vals}
 
 and
 
-$$Z_t \stackrel{\text{iid}}{\sim} \operatorname{Normal}(\hat{q}', \tau^2).$$ {#eq:margq_lik}
+$$Z_t \stackrel{\text{iid}}{\sim} \textrm{Normal}(\hat{q}', \tau^2).$$ {#eq:margq_lik}
 
 Catchability is then not estimated at all in this model, and so the prior on $q$ is also removed from the model. The rest of the structure remains the same.
 
@@ -134,9 +134,9 @@ Another way to eliminate predictions of negative depletion is to estimate fishin
 
 Because catch is estimated here, it is important to consider the biomass pool that is being fished. Here we assume that fishing occurs on the biomass pool *after* production has occurred. For instantaneous fishing mortality $F_t$, this gives biomass dynamics
 
-$$\tilde{P}_1 = 1\\
-  \tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right] \\
-    \quad - \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t) \quad t = 1,\dots,T,$$
+$$\tilde{P}_1 = 1$$
+$$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right]$$
+$$\quad - \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t) \quad t = 1,\dots,T,$$
   
 where the second equation simplifies to
 
@@ -144,12 +144,12 @@ $$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right](1 - \exp(-F_t)).$$ {#eq:e
 
 In this way the predicted depletion can only be negative due to density dependence, because fishing only ever takes a *proportion* of the exisiting biomass. For a fixed catch observation variance $\xi^2$,
 
-$$C^*_t = \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t)\\
-  C_t \sim \operatorname{Normal}(C^*_t, \xi^2) \quad t=1,\dots,T.$$ {#eq:exF_catchlik}
+$$C^*_t = \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t)$$
+$$C_t \sim \textrm{Normal}(C^*_t, \xi^2) \quad t=1,\dots,T.$$ {#eq:exF_catchlik}
 
 Each $F_t$ receives the same prior,
 
-$$F_t \stackrel{\text{iid}}{\sim} \operatorname{Flat} \quad t = 1,\dots,T.$$
+$$F_t \stackrel{\text{iid}}{\sim} \textrm{Flat} \quad t = 1,\dots,T.$$
 
 ### Explicit fishing mortality with marginalized catchability
 

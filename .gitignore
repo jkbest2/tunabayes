@@ -33,6 +33,7 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 # End of https://www.gitignore.io/api/r
+
 docs
 *.pdf
 *.ppt*
@@ -40,3 +41,6 @@ docs
 *.html
 *.rds
 /*.Rdata
+
+# Ignore .directory files from Dolphin file manager (KDE)
+.directory

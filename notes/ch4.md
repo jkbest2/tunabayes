@@ -135,8 +135,7 @@ Another way to eliminate predictions of negative depletion is to estimate fishin
 Because catch is estimated here, it is important to consider the biomass pool that is being fished. Here we assume that fishing occurs on the biomass pool *after* production has occurred. For instantaneous fishing mortality $F_t$, this gives biomass dynamics
 
 $$\tilde{P}_1 = 1$$
-$$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right]$$
-$$\quad - \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t) \quad t = 1,\dots,T,$$
+$$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right] - \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t) \quad t = 1,\dots,T,$$
   
 where the second equation simplifies to
 

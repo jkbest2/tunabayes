@@ -3,7 +3,7 @@ title: Model parameterizations for Bayesian nonlinear state space models
 author: John Best
 abstract: Bayesian state-space models are common in fisheries, but even relatively simple models can be computationally expensive to fit, and diagnosing poor fits can be difficult. The Stan software package provides an advanced MCMC sampler and diagnostics that are not available in older packages. Here we compare sampler diagnostics, efficiency, and posterior inferences among different parameterizations of a state-space model. We find that compromises made in the past for computational reasons are now a liability, and may have resulted in biased inferences. These issues are also apparent in the sampler diagnostics now available from Stan. Choosing the appropriate parameterization of a model can increase performance and make inferences more robust.
 geometry: margin=1in
-fontsize: 12pt
+fontsize: 10pt
 header-includes:
     - \usepackage{setspace}
     - \doublespacing
@@ -18,7 +18,7 @@ Estimating the current and past size of an exploited population is a common task
 
 Linear state-space models can be solved analytically [@Kalman1960], and have found use in many areas. The biomass dynamics models typically used in fisheries models are nonlinear, so analytic solutions are not available. A common approach to fitting Bayesian models is to use Markov chain Monte Carlo (MCMC). These methods require software that can be a research project in its own right, so many practitioners tend to use general purpose MCMC packages. The BUGS software package [@Gilks1994] was an early version of this kind of software. While its popularity has declined in recent years, updated versions such as WinBUGS, OpenBUGS, and JAGS have seen wide use across scientific disciplines [@Monnahan2017]. A newer software package in the same vein is Stan [@Carpenter2017]. Its use is becoming increasingly widespread [@Monnahan2017].
 
-@Meyer1999 provide an early example of using BUGS to estimate a nonlinear state-space model for fisheries data. At the time, BUGS did not have a general purpose Metropolis algorithm. Parameters that did not have conjugate priors were required to have log-concave full conditional distributions for adaptive rejection sampling. To do this, @Meyer1999 truncated the distributions of each of the parameters. In translating the state-space model of @Meyer1999 from BUGS to Stan, it became clear that these truncations were problematic. 
+@Meyer1999 provide an early example of using BUGS to estimate a nonlinear state-space model for fisheries data. At the time, BUGS did not have a general purpose Metropolis algorithm. Parameters that did not have conjugate priors were required to have log-concave full conditional distributions for adaptive rejection sampling. To do this, @Meyer1999 truncated the distributions of each of the parameters. In translating the state-space model of @Meyer1999 from BUGS to Stan, it became clear that these truncations were problematic.
 
 Stan uses the No-U-Turn Sampler (NUTS) [@Hoffman2014]. This a self-tuning variant of Hamiltonian Monte Carlo [@Neal2011], which uses an analogue to a physical system to generate MCMC proposals that more effectively explore the parameter space than techniques like Gibbs sampling or random-walk Metropolis sampling. @Monnahan2017 provides an introduction to Hamiltonian Monte Carlo, and @Betancourt2017a an in-depth treatment.
 
@@ -37,24 +37,16 @@ Here we fit seven parameterizations of a Schaefer biomass dynamics model to a da
 # Methods
 
 ## Model specification
-The Schaefer biomass dynamics model [@Schaefer1954] is used here, following @Meyer1999. Intrinsic growth rate is denoted $r$ and carrying capacity $K$. $T$ years of catch data are available. Biomass at time $t$ is $B_t$, though in order to separate the estimation of dynamics from carrying capacity, depletion is the estimated quantity. Depletion at time $t$ is $P_t$, where $P_t = B_t / K$. Observed catch at time $t$ is $C_t$. Then population dynamics year-to-year is modeled as
 
-$$P_{t + 1} = P_t + r P_t (1 - P_t) - \frac{C_t}{K}.$$
+The nonlinear Bayesian state-space model is specified as a hierarchical model. The observed catch per unit effort $I_t$ at time $t = 1,\dots,T$ is assumed to be proportional to the true abundance through the catchability coefficient $q$. Further, it is assumed to be observed with log-normal error with variance $\tau^2$, so that
 
-Multiplicative (log-normal) process error with variance $\sigma^2$ is assumed for each year, with independence among years. The population dynamics process is then
+$$I_t \mid B_t, q, \tau^2 \sim \textrm{log Normal}\left(\log\left[ q B_t \right], \tau^2\right) \quad t = 1,\dots,T$$
 
-$$P_1 = \exp(u_1)$$
-$$P_{t + 1} = \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right] \exp(u_t)$$
-$$u_t \stackrel{\text{iid}}{\sim} \textrm{Normal}(0, \sigma^2) \quad t = 1, \dots, T.$$
+The Schaefer biomass dynamics model [@Schaefer1954] is used here, following @Meyer1999. Intrinsic growth rate is denoted $r$ and carrying capacity $K$. $T$ years of catch data are available. Biomass at time $t$ is $B_t$. In order to separate the estimation of dynamics from carrying capacity, depletion is the estimated quantity. Depletion at time $t$ is denoted $P_t$, where $P_t = B_t / K$. Observed catch at time $t$ is $C_t$. Multiplicative (log-normal) process error with variance $\sigma^2$ is assumed for each year, with independence among years. Median depletion of the unfished population (at $t = 1$) is assumed to be $1$. Log-normal independent process error with variance $\sigma^2$ is included for each year. The population dynamics process is then
 
-Catch per unit effort at time $t$, $I_t$, is used as an index of abundance under the assumption that it is proportional to available biomass through catchability $q$, so that
-
-$$I_t = q B_t \quad t = 1, \dots, T.$$
-
-This is also subject to multiplicative error, with variance $\tau^2$. In terms of depletion, this gives
-
-$$I_t = q K P_t exp(v_t)$$
-$$v_t \stackrel{\text{iid}}{\sim} \textrm{Normal}(0, \tau^2) \quad t= 1, \dots, T.$$
+$$\tilde{P}_1 = 1$$
+$$\tilde{P}_{t} = P_{t-1} + r P_{t-1} (1 - P_{t-1}) - \frac{C_{t-1}}{K} \quad t=2,\dots,T$$
+$$P_{t} \mid P_{t-1}, \sigma^2 \sim \mathrm{log Normal}\left(\log \tilde{P}_t, \sigma^2\right) \quad t=1,\dots,T.$$
 
 Priors match those used in @Meyer1999, which were based on a review of the literature, and an attempt to match particular quantiles (described in the appendix of @Meyer1999). The only noninformative prior is that for catchability. These are
 
@@ -64,23 +56,22 @@ $$p(q) \propto 1/q$$
 $$\sigma^2 \sim \textrm{Inverse Gamma}(3.79, 0.0102)$$
 $$\tau^2 \sim \textrm{Inverse Gamma}(1.71, 0.0086).$$
 
+The posterior distribution of the parameter values combines the information in each of these components. For MCMC applications, we only need the posterior up to a constant of proportionality. Observation likelihoods are assumed independent conditional on the process model, and process errors are assumed independent as well. In terms of the probability density functions $p(\cdot)$ of the distributions defined above, we have
+
+$$p(r, K, q, \boldsymbol{P}, \sigma^2, \tau^2 \mid \boldsymbol{I}) \propto
+\prod_{t=1}^{T} p(I_t \mid P_t, K, q, \tau^2)$$
+$$\times\ p(P_1) \times \prod_{t=2}^{T} p(P_t \mid r, K, P_{t-1}, \sigma^2)$$
+$$\times p(r)\ p(K)\ p(q)\ p(\sigma^2)\ p(\tau^2)$$
+
+In practice, posterior densities are calculated in log-space to avoid issues of numerical underflow. Though the statistical model is fully defined here, there are multiple potential parameterizations and impletmentation details to consider. Each has specific performance characteristics of the fitting procedure. The following parameterizations are summarized in Table {@tbl:param}.
 
 ### Centered model
 
-We used six parameterizations of the model. The *centered* model was a translation of the code in the appendix of @Meyer1999 to idiomatic Stan code. This parameterization used the model specified above. To avoid estimates of negative depletion and attempting to take the log of a negative number, a lower bound of $0.001$ is placed on the median depletion. The state likelihood is
-
-$$\tilde{P}_1 = 1$$
-$$\tilde{P}_t = \max\left(P_{t - 1} + r P_{t - 1} (1 - P_{t - 1}) - C_t / K, 0.001\right)$$
-$$P_t \sim \mathrm{log\ Normal}(\log(\tilde{P}_t), \sigma^2) \quad t = 1,\dots, T,$$
-  
-and the observation likelihood is
-
-$$\tilde{I}_t = q K P_t$$
-$$I_t \sim \textrm{log\ Normal}(\log(\tilde{I}_t), \tau^2) \quad t = 1, \dots, T.$$
+We used six parameterizations of the model. The *centered* model is a translation of the BUGS code in the appendix of @Meyer1999 to idiomatic Stan code. It corresponds directly to the model specified above. To avoid estimates of negative depletion and attempting to take the log of a negative number, a lower bound of $0.001$ is placed on the median depletion. The state likelihood is
 
 ### Truncated model
 
-The *truncated* parameterization is a translation of the model actually fit in @Meyer1999 as closely as possible to Stan. This required adding truncations to the priors on $r$, $K$, and $1 / q$. These were added to allow the BUGS software available at the time to sample from a log-concave full conditional posterior distribution. Note that the specified prior on $q$ was approximated using a $\textrm{Gamma}$ distribution here. The $\textrm{Inverse\ Gamma}$ distribution was not available in BUGS, so $\textrm{Gamma}$ priors were placed on the process precision and observation precision. Truncations were not specified for these parameters. Priors were specified as
+The *truncated* parameterization is a direct translation of the model *actually fit* in @Meyer1999 to Stan. This required adding truncations to the priors on $r$, $K$, and $1 / q$. These were added to allow the BUGS software available at the time to sample from a log-concave full conditional posterior distribution. Note that the specified prior on $q$ was approximated using a $\textrm{Gamma}$ distribution here. The $\textrm{Inverse\ Gamma}$ distribution was not available in BUGS, so $\textrm{Gamma}$ priors were placed on the process precision and observation precision. Truncations were not specified for these parameters. Priors were specified as
 
 $$r \sim \textrm{log Normal}(-1.38, 1 / 3.845) \quad 0.01 < r < 1.2$$
 $$K \sim \textrm{log Normal}(5.042905, 1 / 3.7603664) \quad 10 < K < 1000$$
@@ -90,31 +81,32 @@ $$\tau^{-2} \sim \textrm{Gamma}(1.708603, 0.008613854).$$
 
 The depletion parameters (the state variables) were also assigned truncated priors, where
 
-$$P_t \sim \textrm{log\ Normal}(\tilde{P}_t, \sigma^2) \quad t = 1,\dots,T.$$
- 
+$$P_t \sim \textrm{log\ Normal}(\log \tilde{P}_t, \sigma^2) \quad 0.01 < P_t < 2 \quad t = 1,\dots,T.$$
+
 ### Constrained depletion
 
-Preventing negative depletions is both practically important, allowing us to take the $\log$, and conceptually important. A prediction that some combination of natural and harvest mortality results in a negative depletion implies that the population has been driven extinct. However, if the population of interest has seen continuous harvest, it must not have gone extinct. This allows us to calculate bounds on the depletion parameters that are driven by this reasoning.
+Preventing negative depletions is both practically important, allowing us to take the $\log$, and conceptually important. A prediction that results in a negative depletion due to a combination of natural and harvest mortality implies that the population has been driven extinct. However, if the population of interest has seen continuous harvest, it must not have gone extinct. This knowledge allows us to calculate bounds on the depletion parameters based on this fact.
 
-For values of $r$, $K$, and $C_t$, we want bounds such that $P_{t + 1} > 0$. Due to the quadratic nature of the Schaefer model, both a lower and upper bound will be required. The lower bound ensures that sufficient biomass is available for the observed catch. The upper bound ensures that density dependence at high (depletions much greater than one) will not cause a prediction of negative biomass. The upper bound is unlikely to come into play in a fisheries system, but eliminating these values may help the sampler stay within the desired range.
+For values of $P_{t-1}$, $r$, $K$, and $C_{t-1}$, we want bounds such that $P_{t} > 0$. Due to the quadratic nature of the Schaefer model, both a lower and upper bound will be required. The lower bound ensures that sufficient biomass is available for the observed catch. The upper bound ensures that density dependence at high depletions (much greater than one) will not result in a prediction of negative biomass. The upper bound is unlikely to come into play in a fisheries system, but eliminating these values may help the sampler stay within the desired range.
 
 To find these bounds, we set
 
-$$P_t + r P_t (1 - P_t) - \frac{C_t}{K} > 0.$$
+$$P_{t-1} + r P_{t-1} (1 - P_{t-1}) - \frac{C_{t-1}}{K} > 0.$$
 
 Using the quadratic formula we find that
 
-$$\frac{1 + r - \sqrt{(1 + r)^2 - 4 r C_t / K}}{2r} < P_t < \frac{1 + r + \sqrt{(1 + r)^2 - 4 r C_t / K}}{2r}$$
+$$\frac{1 + r - \sqrt{(1 + r)^2 - 4 r C_t / K}}{2r} < P_{t-1} < \frac{1 + r + \sqrt{(1 + r)^2 - 4 r C_t / K}}{2r}$$
 
-Ensures that the subsequent $\tilde{P}_{t+1}$ will be nonnegative. These constraints can be included in the Stan program with the necessary Jacobian correction.
- 
+Ensures that the subsequent predicted median depletion, $\tilde{P}_{t}$, will be nonnegative. These constraints are included in the Stan program with the required Jacobian correction.
+
 ### Noncentered process noise
 
-Noncentering [@Papaspiliopoulos2007] is a technique that is commonly used in additive hierarchical models to improve sampler efficiency and reduce potential parameter bias [@Betancourt2015]. Noncentering decorrelates the sampled parameters without changing the posterior. In this case, we noncenter the process noise, so that the biomass dynamics take the form
+Noncentering [@Papaspiliopoulos2007] is a technique that is commonly used in additive hierarchical models to improve sampler efficiency and reduce potential for parameter bias [@Betancourt2015]. Noncentering decorrelates the sampled parameters without changing the posterior. In this case, we noncenter the process noise, so that the biomass dynamics take the form
 
-$$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t) - \frac{C_t}{K}\right]\exp(\sigma u_t)$$
-$$u_t \sim \textrm{Normal}(0, 1) \quad t = 1,\dots,T.$$
- 
+$$P_1 = \exp(\sigma u_1)$$
+$$P_{t} = \left[P_{t-1} + r P_{t-1} (1 - P_{t-1}) - \frac{C_{t-1}}{K}\right]\exp(\sigma u_t) \quad t=2,\dots,T$$
+$$u_t \stackrel{\textrm{iid}}{\sim} \textrm{Normal}(0, 1) \quad t = 1,\dots,T.$$
+
 ### Marginalized catchability
 
 The prior on catchability takes a form that is amenable to marginalization. Following @Walters1994, we calculate
@@ -135,24 +127,36 @@ Another way to eliminate predictions of negative depletion is to estimate fishin
 Because catch is estimated here, it is important to consider the biomass pool that is being fished. Here we assume that fishing occurs on the biomass pool *after* production has occurred. For instantaneous fishing mortality $F_t$, this gives biomass dynamics
 
 $$\tilde{P}_1 = 1$$
-$$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right] - \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t) \quad t = 1,\dots,T,$$
+$$\tilde{P}_{t} = \left[P_{t-1} + r P_{t-1} (1 - P_{t-1})\right] - \left[P_{t-1} + r P_{t-1} (1 - P_{t-1})\right] \exp(-F_{t-1}) \quad t = 2,\dots,T,$$
   
 where the second equation simplifies to
 
 $$\tilde{P}_{t+1} = \left[P_t + r P_t (1 - P_t)\right](1 - \exp(-F_t)).$$ {#eq:exF_dyn}
 
-In this way the predicted depletion can only be negative due to density dependence, because fishing only ever takes a *proportion* of the exisiting biomass. For a fixed catch observation variance $\xi^2$,
+In this way the predicted depletion can only be negative due to density dependence, because fishing only ever takes a *proportion* of the exisiting biomass. Catches are assumed to be observed with additive, normally-distributed error, with fixed catch variance $\xi^2$, so that
 
-$$C^*_t = \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t)$$
+$$C^*_t = \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t),$$
 $$C_t \sim \textrm{Normal}(C^*_t, \xi^2) \quad t=1,\dots,T.$$ {#eq:exF_catchlik}
 
-Each $F_t$ receives the same prior,
+0Each $F_t$ receives the same prior,
 
-$$F_t \stackrel{\text{iid}}{\sim} \textrm{Flat} \quad t = 1,\dots,T.$$
+$$F_t \stackrel{\text{iid}}{\sim} \textrm{Flat}(0, \infty) \quad t = 1,\dots,T.$$
 
 ### Explicit fishing mortality with marginalized catchability
 
 When fitting the previous model, it was clear that the limiting parameter (in terms of effective sample size) was the catchability parameter $q$. The final model parameterization combines the previous two, estimating instantaneous fishing mortality while marginalizing out catchabilty. That is, it uses Equation @eq:exF_dyn for population dynamics and the likelihood is calculated using Equations @eq:margq_vals, @eq:margq_lik, and @eq:exF_catchlik. Other priors remained the same as the /centered/ parameterization, with $q$ obviously excluded.
+
+|                    | Centered  | Noncentered | Truncated pars  | Truncated $\boldsymbol{P}$ | Marginalize $q$ | Explicit $\boldsymbol{F}$ |
+| :----------------- | :-------: | :---------: | :-------------: | :------------------------: | :-------------: | :-----------------------: |
+| Centered           | ×         |             |                 |                            |                 |                           |
+| Truncated          | ×         |             | ×               | ×                          |                 |                           |
+| Constrained P      | ×         |             |                 | ×                          |                 |                           |
+| Noncentered        |           | ×           |                 |                            |                 |                           |
+| Marginal q         | ×         |             |                 |                            | ×               |                           |
+| Explicit F         | ×         |             |                 |                            |                 | ×                         |
+| Explicit F marg q  | ×         |             |                 |                            | ×               | ×                         |
+
+Table: Features of each parameterization used in this study. The first two columns indicate whether process error was centered or noncentered (see description in text). The next column indicates whether model hyperparameters ($r$, $K$, $q$, $\sigma^2$, $\tau^2$) are given truncated priors. The "Truncated $\boldsymbol{P}$" column indicates model specifications where the distribution of each depletion is truncated or constrained. "Marginalize $q$" indicates models where the catchability coefficient is marginalized out. The final column indicates model parameterizations where fishing mortality is explicitly modeled. {#tbl:param}
 
 ## Data
 
@@ -162,7 +166,7 @@ The data set has been published multiple times, including in @Polacheck1993.  an
 
 ## Fitting the different parameterizations
 
-Each parameterization was fit using Stan 2.18 through the `rstan` interface [need a citation here]. Six chains of $20,000$ iterations each were run, with the first $5,000$ designated as warmup and not considered for inference. This leaves $90,000$ samples to be used for inference. 
+Each parameterization was fit using Stan 2.18 through the `rstan` interface [need a citation here]. Six chains of $20,000$ iterations each were run, with the first $5,000$ designated as warmup and not considered for inference. This leaves $90,000$ samples to be used for inference.
 
 Chains were run first with the default sampler parameters. This uses a target acceptance rate (`adapt_delta`) of $0.8$ and a maximum treedepth of $10$. Initial runs were used to diagnose potential issues in each parameterization. All of the fits besides the two *explicit F* parameterizations displayed warnings about divergent transitions. These were fit a second time, increasing the target acceptance rate to $0.975$. The two *explicit F* parameterizations displayed warnings about exceeding maximum treedepth. These were fit a second time with maximum treedepth increased to $15$.
 
@@ -177,7 +181,6 @@ To check the sensitivity of the posterior distribution to the value of the catch
 We fit seven parameterizations of the state-space model. Each model was fit using the default sampler settings of Stan's NUTS sampler, and then again with adjustments based on diagnostics that indicated divergent transitions or trajectories that exceeded the maximum tree depth. We would like to identify parameterizations and sampler parameters that do not exhibit divergent transitions during sampling, and are as efficient as possible.
 
 ## Sampler diagnostics
-
 
 |                  | Divergences| Divergences Adj| Exc Treedepth| Exc Treedepth Adj|
 |:-----------------|-----------:|---------------:|-------------:|-----------------:|
@@ -286,4 +289,3 @@ The *explicit F* parameterizations require estimating an additional parameter fo
 If a pracitioner encounters warnings about divergent transitions, they should first see if increasing the target acceptance rate eliminates them. If the divergent transitions cannot be eliminated by increasing the target acceptance rate, alternative parameterizations should be considered. Warnings about exceeding the maximum tree depth should be eliminated by increasing the relavant sampler parameter. Note that either of these will most likely decrease sampler efficiency (though not always). Because Stan is compiled, it can be easy to run multiple short chains to find the sampler parameters that eliminate warnings while preserving sampler efficiency.
 
 # References
-

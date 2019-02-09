@@ -10,6 +10,7 @@ header-includes:
     - \usepackage{lineno}
     - \linenumbers
 latex-engine: xelatex
+classoption: draft
 ---
 
 # Introduction
@@ -291,3 +292,9 @@ The *explicit F* parameterizations require estimating an additional parameter fo
 If a pracitioner encounters warnings about divergent transitions, they should first see if increasing the target acceptance rate eliminates them. If the divergent transitions cannot be eliminated by increasing the target acceptance rate, alternative parameterizations should be considered. Warnings about exceeding the maximum tree depth should be eliminated by increasing the relavant sampler parameter. Note that either of these will most likely decrease sampler efficiency (though not always). Because Stan is compiled, it can be easy to run multiple short chains to find the sampler parameters that eliminate warnings while preserving sampler efficiency.
 
 # References
+
+\noindent
+\vspace{-2em}
+\setlength{\parindent}{-0.5in}
+\setlength{\leftskip}{0.5in}
+\setlength{\parskip}{5pt}

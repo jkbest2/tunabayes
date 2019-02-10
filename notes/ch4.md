@@ -145,23 +145,9 @@ $$F_t \stackrel{\text{iid}}{\sim} \textrm{Flat}(0, \infty) \quad t = 1,\dots,T.$
 
 When fitting the previous model, it was clear that the limiting parameter (in terms of effective sample size) was the catchability parameter $q$. The final model parameterization combines the previous two, estimating instantaneous fishing mortality while marginalizing out catchabilty. That is, it uses Equation @eq:exF_dyn for population dynamics and the likelihood is calculated using Equations @eq:margq_vals, @eq:margq_lik, and @eq:exF_catchlik. Other priors remained the same as the /centered/ parameterization, with $q$ obviously excluded.
 
-|                    | Centered  | Noncentered | Truncated pars  | Truncated $\boldsymbol{P}$ | Marginalize $q$ | Explicit $\boldsymbol{F}$ |
-| :----------------- | :-------: | :---------: | :-------------: | :------------------------: | :-------------: | :-----------------------: |
-| Centered           | ×         |             |                 |                            |                 |                           |
-| Truncated          | ×         |             | ×               | ×                          |                 |                           |
-| Constrained P      | ×         |             |                 | ×                          |                 |                           |
-| Noncentered        |           | ×           |                 |                            |                 |                           |
-| Marginal q         | ×         |             |                 |                            | ×               |                           |
-| Explicit F         | ×         |             |                 |                            |                 | ×                         |
-| Explicit F marg q  | ×         |             |                 |                            | ×               | ×                         |
-
-Table: Features of each parameterization used in this study. The first two columns indicate whether process error was centered or noncentered (see description in text). The next column indicates whether model hyperparameters ($r$, $K$, $q$, $\sigma^2$, $\tau^2$) are given truncated priors. The "Truncated $\boldsymbol{P}$" column indicates model specifications where the distribution of each depletion is truncated or constrained. "Marginalize $q$" indicates models where the catchability coefficient is marginalized out. The final column indicates model parameterizations where fishing mortality is explicitly modeled. {#tbl:param}
-
 ## Data
 
 The data set has been published multiple times, including in @Polacheck1993.  and @Meyer1999. It includes 23 years of observed catch and catch per unit effort data from the south Atlantic albacore fishery between 1967 and 1989. Catch is provided in thousands of tons while catch per unit effort has units of kilograms per 100 hooks. A classic "one way trip" is exhibited where catch-per-unit-effort decreases over time (Figure @fig:catch_cpue).
-
-![Catch and CPUE series from South Atlantic albacore fishery between 1967 and 1989. While catches have remained fairly constant, CPUE shows a marked decline.](figs/catch_cpue.png){#fig:catch_cpue}
 
 ## Fitting the different parameterizations
 
@@ -181,39 +167,13 @@ We fit seven parameterizations of the state-space model. Each model was fit usin
 
 ## Sampler diagnostics
 
-|                  | Divergences| Divergences Adj| Exc Treedepth| Exc Treedepth Adj|
-|:-----------------|-----------:|---------------:|-------------:|-----------------:|
-|Centered          |          89|               0|             0|                 0|
-|Truncated         |       57990|           55030|             0|                 1|
-|Constrained P     |          23|               0|             0|                 0|
-|Noncentered       |        5639|             626|             0|                 0|
-|Marginal q        |         102|               0|             0|                 0|
-|Explicit F        |           0|               0|         11383|                 0|
-|Explicit F marg q |           0|               0|         11162|                 0|
-
-Table: Sampler diagnostics for each model parameterization. These counts are out of $90,000$ inference samples. The *centered*, *constrained P*, and *marginal q* parameterizations all responded well to increasing the target acceptance rate; this successfully eliminated all of the divergent transitions. The two *explicit F* parameterizations similarly responded well to an increased maximum treedepth. Adjusting the target acceptance rate did not eliminate all divergences for the *truncated* and *noncentered* parameterizations. {#tbl:fit_diag}
-
 Table {@tbl:fit_diag} shows the diagnostics for each of the model fits under both the default sampler parameters and the adjusted parameters. Except for the two *explicit F* parameterizations, the default target acceptance rate of $0.8$ resulted in divergent transitions. Increasing the target acceptance rate to $0.975$ eliminated the divergent transitions in the *centered*, *constrained P*, and *marginal q* parameterizations. The *truncated* parameterization showed a relatively small decrease in number of divergent transitions, but over half of the transitions remained divergent. The *noncentered* parameterization showed an order of magnitude decrease in number of divergent transitions, but this came at the expense of a number of transitions that exceeded the maximum treedepth.
 
 The two *explicit F* parameterizations exhibited no divergent transitions, even under the default target acceptance rate. The flattening effect of this parameterization was evident in the large number of transitions that exceeded the default maximum tree depth of $10$. Increasing the maximum treedepth to 15 eliminated these warnings.
 
-|                  | Default| Adjusted|
-|:-----------------|-------:|--------:|
-|Centered          |    8237|    13120|
-|Truncated         |     209|      607|
-|Constrained P     |    7135|     5678|
-|Noncentered       |   17343|    29182|
-|Marginal q        |   13741|    13481|
-|Explicit F        |    6561|     7110|
-|Explicit F marg q |    6165|     6408|
-
-Table: The estimated number of effectively independent samples from each parameterization. This is out of $90,000$ samples. Adjusting the sampler parameters increased effective sample size in all parameterizations except *marginal q* and *constrained P*. These increases are generally offset by increased sampling time (see figure @fig:sampler_efficiency). {#tbl:ess}
-
 The number of effectively independent samples varied over multiple orders of magnitude among parameterizations. Table {@tbl:ess} shows that the *noncentered* parameterization generated the largest number of effectively independent samples under both the default and adjusted sampler parameters. The *centered* parameterization performed well, and was comparable to the *marginal q* parameterization after the target acceptance rate was increased.
 
 ## Parameterization timings
-
-![Sampler efficiency under different parameterizations. Except for the *centered* and *noncentered* parameterizations, the efficiency rankings hold before and after adjusting the target acceptance rates and maximum treedepths. Most models showed a decrease after these adjustments. The *centered* and *truncated* parameterizations showed an increase.](figs/sampler_efficiency.png){#fig:sampler_efficiency}
 
 Although adjusting the target acceptance rate and maximum treedepth tended to increase the effective sample size, this came at the cost of increased computation time. The *marginal q* parameterization was generally the most efficient, producing around 60 effectively independent samples per second after adjusting the target acceptance rate. The *centered* and *noncentered* parameterizations were competitive with each other. The *constrained P* parameterization was next, with fewer than ten independent samples per second. The two *explicit F* parameterizations each produced around 2 independent samples per second. The *truncated* parameterization was consistently the least efficient, producing fewer than one independent sample per second.
 
@@ -223,28 +183,11 @@ Adjustments to the target acceptance rate and maximum treedepth generally slowed
 
 Most of the parameterizations exhibit strikingly similar posterior distributions (+@fig:biopost). The *truncated* parameterization is the one exception. Credible intervals for each year's biomass are much wider, and the median values differ, sometimes substantially. Posteriors of derived quantities of interest to managers show a similar pattern (+@fig:mgt_quant). Most worryingly, the *truncated* parameterization results in values that are biased high compared to the other parameterizations, potentially leading to management decisions that are unsustainable.
 
-![Posterior biomass series under each parameterization. Median values, 50%, and 80% credible intervals are plotted. The *truncated* parameterization exhibits substantially larger credible intervals and more variable median values. The posterior distributions under the other parameterizations are almost indistinguishable.](figs/biopost.png){#fig:biopost}
-
-![Posterior quantiles of MSY, FMSY, and depletion in 1990 under each parameterization. These use the posteriors fit using the adjusted sampler parameters. The 95%, 80%, and 50% credible intervals are shown, along with the median. All parameterizations besides the *truncated* parameterization show very similar posterior distributions.](figs/mgt_quant.png){#fig:mgt_quant}
 
 ## Catch sensitivity
 
 ### Diagnostics
 
-| Catch error | Exc. Treedepth | Divergence | Minimum ESS |
-|-------------|----------------|------------|-------------|
-|       0.010 |           3245 |          0 |        8011 |
-|       0.028 |              0 |          0 |        7526 |
-|       0.077 |              0 |          0 |        7896 |
-|       0.215 |              0 |          0 |        6742 |
-|       0.599 |              0 |          0 |        8230 |
-|       1.668 |              0 |         10 |        7008 |
-|       4.641 |              0 |      89930 |           3 |
-|      12.915 |              0 |      90000 |           3 |
-|      35.938 |              0 |      90000 |           3 |
-|     100.000 |              0 |      90000 |           3 |
-
-Table: Diagnostics for *explicit F* parameterization fit with varying levels of catch error ($\xi$ in +@eq:exF_catchlik), fit with maximum tree depth increased to 15. Low error in catches results in transitions that exceed maximum treedepth. Neither divergences or maximum treedepth warnings are encountered for intermediate values of catch error. At high catch error, the model is not identifiable and no useful samples are returned. {#tbl:csd_diag}
 
 *@tbl:csd_diag demonstrates the influence of the fixed value of $\xi$ on the posterior. The magnitude of the fixed catch error clearly influences the geometry of the posterior. Smaller values result in posteriors with less curvature, as evidenced by the transitions that exceeded maximum tree depth. Large values of catch error result in a posterior with extreme curvature, potentially due to unidentifiability. It is possible that informative priors on the $F_t$ would alleviate this. Note also that the large values are particularly extreme, and fail to rule out absurdities such as negative catches.
 
@@ -252,26 +195,11 @@ The chains have clearly not converged to the posterior distribution for values o
 
 ### Timing
 
-| Catch error| Min ESS Rate|
-|-----------:|------------:|
-|       0.010|        0.107|
-|       0.028|        0.287|
-|       0.077|        0.856|
-|       0.215|        1.805|
-|       0.599|        5.631|
-|       1.668|       13.387|
-
-Table: Effectively independent samples were produced more efficiently with a higher catch error, until sampling at values of catch error larger than those included here. {#tbl:csd_timing}
-
 The change in posterior geometry demonstrated above also influences sampling efficiency. The rate of sampling effectively independent samples increased roughly linearly with catch error in the range where sampling was successful (+@tbl:csd_timing).
 
 ### Posteriors
 
 In the range where sampling was successful, the magnitude of assumed catch error does not appear to have had much effect on the posterior distributions of interest. The biomass series, as seen in +@fig:csd_biomass, does not show systematically different credible intervals or median estimates of the biomass for each year. Estimates of MSY, FMSY, and depletion in 1990 appear similarly unaffected by the magnitude of catch error (+@fig:csd_mgt).
-
-![Posterior biomass series assuming different levels of catch error. The level of catch error does not appear to have much influence on the marginal distributions of biomass for each year.](figs/csd_biomass.png){#fig:csd_biomass}
-
-![Posterior distributions of MSY, FMSY, and depletion in 1990. Changes in assumed catch error do not appear to have a systematic influence on these posterior distributions.](figs/csd_mgt.png){#fig:csd_mgt}
 
 # Discussion
 
@@ -294,3 +222,101 @@ If a pracitioner encounters warnings about divergent transitions, they should fi
 \setlength{\parindent}{-0.5in}
 \setlength{\leftskip}{0.5in}
 \setlength{\parskip}{5pt}
+
+<div id="refs"></div>
+
+\newpage
+
+|                    | Centered  | Noncentered | Truncated pars  | Truncated $\boldsymbol{P}$ | Marginalize $q$ | Explicit $\boldsymbol{F}$ |
+| :----------------- | :-------: | :---------: | :-------------: | :------------------------: | :-------------: | :-----------------------: |
+| Centered           | ×         |             |                 |                            |                 |                           |
+| Truncated          | ×         |             | ×               | ×                          |                 |                           |
+| Constrained P      | ×         |             |                 | ×                          |                 |                           |
+| Noncentered        |           | ×           |                 |                            |                 |                           |
+| Marginal q         | ×         |             |                 |                            | ×               |                           |
+| Explicit F         | ×         |             |                 |                            |                 | ×                         |
+| Explicit F marg q  | ×         |             |                 |                            | ×               | ×                         |
+
+Table: Features of each parameterization used in this study. The first two columns indicate whether process error was centered or noncentered (see description in text). The next column indicates whether model hyperparameters ($r$, $K$, $q$, $\sigma^2$, $\tau^2$) are given truncated priors. The "Truncated $\boldsymbol{P}$" column indicates model specifications where the distribution of each depletion is truncated or constrained. "Marginalize $q$" indicates models where the catchability coefficient is marginalized out. The final column indicates model parameterizations where fishing mortality is explicitly modeled. {#tbl:param}
+
+\newpage
+
+|                  | Divergences| Divergences Adj| Exc Treedepth| Exc Treedepth Adj|
+|:-----------------|-----------:|---------------:|-------------:|-----------------:|
+|Centered          |          89|               0|             0|                 0|
+|Truncated         |       57990|           55030|             0|                 1|
+|Constrained P     |          23|               0|             0|                 0|
+|Noncentered       |        5639|             626|             0|                 0|
+|Marginal q        |         102|               0|             0|                 0|
+|Explicit F        |           0|               0|         11383|                 0|
+|Explicit F marg q |           0|               0|         11162|                 0|
+
+Table: Sampler diagnostics for each model parameterization. These counts are out of $90,000$ inference samples. The *centered*, *constrained P*, and *marginal q* parameterizations all responded well to increasing the target acceptance rate; this successfully eliminated all of the divergent transitions. The two *explicit F* parameterizations similarly responded well to an increased maximum treedepth. Adjusting the target acceptance rate did not eliminate all divergences for the *truncated* and *noncentered* parameterizations. {#tbl:fit_diag}
+
+\newpage
+
+|                  | Default| Adjusted|
+|:-----------------|-------:|--------:|
+|Centered          |    8237|    13120|
+|Truncated         |     209|      607|
+|Constrained P     |    7135|     5678|
+|Noncentered       |   17343|    29182|
+|Marginal q        |   13741|    13481|
+|Explicit F        |    6561|     7110|
+|Explicit F marg q |    6165|     6408|
+
+Table: The estimated number of effectively independent samples from each parameterization. This is out of $90,000$ samples. Adjusting the sampler parameters increased effective sample size in all parameterizations except *marginal q* and *constrained P*. These increases are generally offset by increased sampling time (see figure @fig:sampler_efficiency). {#tbl:ess}
+
+\newpage
+
+| Catch error | Exc. Treedepth | Divergence | Minimum ESS |
+|-------------|----------------|------------|-------------|
+|       0.010 |           3245 |          0 |        8011 |
+|       0.028 |              0 |          0 |        7526 |
+|       0.077 |              0 |          0 |        7896 |
+|       0.215 |              0 |          0 |        6742 |
+|       0.599 |              0 |          0 |        8230 |
+|       1.668 |              0 |         10 |        7008 |
+|       4.641 |              0 |      89930 |           3 |
+|      12.915 |              0 |      90000 |           3 |
+|      35.938 |              0 |      90000 |           3 |
+|     100.000 |              0 |      90000 |           3 |
+
+Table: Diagnostics for *explicit F* parameterization fit with varying levels of catch error ($\xi$ in +@eq:exF_catchlik), fit with maximum tree depth increased to 15. Low error in catches results in transitions that exceed maximum treedepth. Neither divergences or maximum treedepth warnings are encountered for intermediate values of catch error. At high catch error, the model is not identifiable and no useful samples are returned. {#tbl:csd_diag}
+
+\newpage
+
+| Catch error| Min ESS Rate|
+|-----------:|------------:|
+|       0.010|        0.107|
+|       0.028|        0.287|
+|       0.077|        0.856|
+|       0.215|        1.805|
+|       0.599|        5.631|
+|       1.668|       13.387|
+
+Table: Effectively independent samples were produced more efficiently with a higher catch error, until sampling at values of catch error larger than those included here. {#tbl:csd_timing}
+
+\newpage
+
+![Catch and CPUE series from South Atlantic albacore fishery between 1967 and 1989. While catches have remained fairly constant, CPUE shows a marked decline.](figs/catch_cpue.png){#fig:catch_cpue}
+
+\newpage
+
+![Sampler efficiency under different parameterizations. Except for the *centered* and *noncentered* parameterizations, the efficiency rankings hold before and after adjusting the target acceptance rates and maximum treedepths. Most models showed a decrease after these adjustments. The *centered* and *truncated* parameterizations showed an increase.](figs/sampler_efficiency.png){#fig:sampler_efficiency}
+
+\newpage
+
+![Posterior biomass series under each parameterization. Median values, 50%, and 80% credible intervals are plotted. The *truncated* parameterization exhibits substantially larger credible intervals and more variable median values. The posterior distributions under the other parameterizations are almost indistinguishable.](figs/biopost.png){#fig:biopost}
+
+\newpage
+
+![Posterior quantiles of MSY, FMSY, and depletion in 1990 under each parameterization. These use the posteriors fit using the adjusted sampler parameters. The 95%, 80%, and 50% credible intervals are shown, along with the median. All parameterizations besides the *truncated* parameterization show very similar posterior distributions.](figs/mgt_quant.png){#fig:mgt_quant}
+
+\newpage
+
+![Posterior biomass series assuming different levels of catch error. The level of catch error does not appear to have much influence on the marginal distributions of biomass for each year.](figs/csd_biomass.png){#fig:csd_biomass}
+
+\newpage
+
+![Posterior distributions of MSY, FMSY, and depletion in 1990. Changes in assumed catch error do not appear to have a systematic influence on these posterior distributions.](figs/csd_mgt.png){#fig:csd_mgt}

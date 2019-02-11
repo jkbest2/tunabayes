@@ -4,13 +4,8 @@ author: John Best
 abstract: Bayesian state-space models are common in fisheries, but even relatively simple models can be computationally expensive to fit, and diagnosing poor fits can be difficult. The Stan software package provides an advanced MCMC sampler and diagnostics that are not available in older packages. Here we compare sampler diagnostics, efficiency, and posterior inferences among different parameterizations of a state-space model. We find that compromises made in the past for computational reasons are now a liability, and may have resulted in biased inferences. These issues are also apparent in the sampler diagnostics now available from Stan. Choosing the appropriate parameterization of a model can increase performance and make inferences more robust.
 geometry: margin=1in
 fontsize: 10pt
-header-includes:
-    - \usepackage{setspace}
-    - \doublespacing
-    - \usepackage{lineno}
-    - \linenumbers
 latex-engine: xelatex
-classoption: draft
+numbersections: true
 ---
 
 # Introduction

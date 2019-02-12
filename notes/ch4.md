@@ -222,17 +222,17 @@ If a pracitioner encounters warnings about divergent transitions, they should fi
 
 \newpage
 
-|                    | Centered  | Noncentered | Truncated pars  | Truncated $\boldsymbol{P}$ | Marginalize $q$ | Explicit $\boldsymbol{F}$ |
-| :----------------- | :-------: | :---------: | :-------------: | :------------------------: | :-------------: | :-----------------------: |
-| Centered           | ×         |             |                 |                            |                 |                           |
-| Truncated          | ×         |             | ×               | ×                          |                 |                           |
-| Constrained P      | ×         |             |                 | ×                          |                 |                           |
-| Noncentered        |           | ×           |                 |                            |                 |                           |
-| Marginal q         | ×         |             |                 |                            | ×               |                           |
-| Explicit F         | ×         |             |                 |                            |                 | ×                         |
-| Explicit F marg q  | ×         |             |                 |                            | ×               | ×                         |
+|                    | Process error | Truncated pars.  | $\boldsymbol{P} > 0$ | Marginalize $q$ |
+| :----------------- | :-----------: | :-------------: | :------------------: | :-------------: |
+| Centered           | C             |                 | Small val.           |                 |
+| Truncated          | C             | $r,K,q^{-1}$    | Arb. trunc.          |                 |
+| Constrained P      | C             |                 | Pos. trunc.          |                 |
+| Noncentered        | NC            |                 | Small val.           |                 |
+| Marginal q         | C             |                 | Small val.           | ×               |
+| Explicit F         | C             |                 | Expl. F              |                 |
+| Explicit F marg q  | C             |                 | Expl. F              | ×               |
 
-Table: Features of each parameterization used in this study. The first two columns indicate whether process error was centered or noncentered (see description in text). The next column indicates whether model hyperparameters ($r$, $K$, $q$, $\sigma^2$, $\tau^2$) are given truncated priors. The "Truncated $\boldsymbol{P}$" column indicates model specifications where the distribution of each depletion is truncated or constrained. "Marginalize $q$" indicates models where the catchability coefficient is marginalized out. The final column indicates model parameterizations where fishing mortality is explicitly modeled. {#tbl:param}
+Table: Features of each parameterization used in this study. The first column indicates whether process error was centered (C) or noncentered (NC). The next column indicates whether the biomass dynamics parameters were assigned truncated priors. The "$\boldsymbol{P} > 0$" column indicates the strategy used to prevent predictions of negative depletion, either by a small positive biomass to negative predictions (Small val), arbitrarily truncating the distribution of the predictions (Arb. trunc.), truncating above and below at the values where depletion becomes negative (Pos. trunc.), or including explicit fishing mortality (Expl. F). The final column indicates whether catchability ($q$) was analytically marginalized out. {#tbl:param}
 
 \newpage
 

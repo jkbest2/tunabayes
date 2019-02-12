@@ -10,11 +10,15 @@ numbersections: true
 
 # Introduction
 
-Bayesian state-space models are used extensively in fisheries. The implementation details of these models can have a substantial effect on the computational costs of the fitting process and the trustworthiness of the resulting inferences. An early example of using general-purpose MCMC software to fit nonlinear state-space models for fisheries is presented in @Meyer1999, and the implementation in their appendix has formed the basis for many stock assessments around the world. Diagnostics available in newer diagnostic tools indicate that this implementation may be problematic.
+Bayesian state-space models are used extensively in fisheries. Details of how these models are implented and fit can have a substantial effect on the computational costs and the trustworthiness of the resulting inferences. An early example of using general-purpose Markov chain Monte Carlo (MCMC) software to fit nonlinear state-space models for fisheries is presented in @Meyer1999, and the implementation in their appendix has formed the basis for many stock assessments around the world. Advances in MCMC algorithms have made new diagnostics available. These indicate that the implementation of @Meyer1999 may be problematic.
 
-Baysian state-space models are often used for stock assessments of species where data is limited to catches and indices of abundance such as catch per unit effort measures. These include pelagic species such as swordfish [@ICCAT2014; @ICCAT2017a], blue shark [@ICCAT2016; @ISC2017], shortfin mako [@ICCAT2017], and albacore [@ICCAT2017b]. They are also used for invertebrates such as tiger prawns in Australia [@Zhou2010] and Humpback whales in the southern Atlantic [@Zerbini2011].
+Baysian state-space models are often used for stock assessments of species where data is limited to catches and indices of abundance such as catch per unit effort. These include pelagic species such as swordfish [@ICCAT2014; @ICCAT2017a], blue shark [@ICCAT2016; @ISC2017], shortfin mako [@ICCAT2017], and albacore [@ICCAT2017b]. They are also used for invertebrates such as tiger prawns in Australia [@Zhou2010] and marine mammals such as Humpback whales in the southern Atlantic [@Zerbini2011]. These models also underpin multiple software packages used for stock assessment, including BSP2 [@McAllister2014] and JABBA [@Winker2018].
 
 Linear state-space models can be solved analytically [@Kalman1960], and have found use in many areas. Biomass dynamics models used in fisheries models are nonlinear, so analytic solutions are not available. A common approach to fitting Bayesian models is to use Markov chain Monte Carlo (MCMC). These methods require software that can be a research project in its own right, so many practitioners use general purpose MCMC packages. The BUGS software package [@Gilks1994] was an early example of this kind of software. While its popularity has declined in recent years, updated versions such as WinBUGS [@Lunn2000], OpenBUGS [@Lunn2009], and JAGS [@Plummer2003] have seen wide use across scientific disciplines [@Monnahan2017]. The recent JABBA package for R [@Winker2018] provides a convenient interface to fit nonlinear state-space models for fisheries in JAGS. A newer software package for general purpose MCMC is Stan [@Carpenter2017]. Its use is becoming increasingly widespread [@Monnahan2017].
+
+Biomass dynamics models such as the Schaefer model [@Schaefer1954] specify a functional relationship for population change between consecutive years. These models are typically chosen for their simplicity and for their behavior in the regimes we typically see, as when the population is at or below carrying capacity. Surplus production models can exhibit pathological behavior in some situations, which in this case manifests as predictions of negative biomass for subsequent time steps. In the case of the Schaefer model used here, this can occur if the current population is less than the observed catch, or if the current population is so large that density dependence predicts a negative surplus production larger in magnitude than the current population.
+
+Setting any negative predictions to zero reaches a fixed point of the surplus production model, and indicates that the population has gone extinct. However, given records of positive catch after a given year, we know *a priori* that the population must have had at least as much biomass as was caught that year. Pracically, this is also important when using log Normal process and observation errors (as in the models presented here), because the natural $\log$ of the predicted populations and indices are taken. Multiple "fixes" are used to address this. The most common approach is to fix negative or zero predictions to a small value. This is typically done arbitrarily, and does not address other paradoxes such as predicting less biomass than was actually observed through catches in subsequent years. It also does not address situations where density dependence results in negative predictions. Sometimes upper bounds are added to prevent this These are also typically chosen arbitrarily. Another approach is to consider that catch is observed with some error, and to fit a fishing mortality rate for each year. This ensures that true catch is less than the predicted biomass. The effect of using each of these approaches on model fitting will be explored.
 
 Stan uses the No-U-Turn Sampler (NUTS) [@Hoffman2014]. This a self-tuning variant of Hamiltonian Monte Carlo [@Neal2011], which uses an analogue to a physical system to generate MCMC proposals that more effectively explore the parameter space than techniques like Gibbs sampling or random-walk Metropolis sampling. MCMC that uses NUTS also provides additional diagnostic tools, allowing practitioners to both check whether areas of the parameter space are being missed and to tune the computational efficiency of the fitting process.
 
@@ -132,7 +136,7 @@ In this way the predicted depletion can only be negative due to density dependen
 $$C^*_t = \left[P_t + r P_t (1 - P_t)\right] \exp(-F_t),$$
 $$C_t \sim \textrm{Normal}(C^*_t, \xi^2) \quad t=1,\dots,T.$$ {#eq:exF_catchlik}
 
-0Each $F_t$ receives the same prior,
+Each $F_t$ receives the same prior,
 
 $$F_t \stackrel{\text{iid}}{\sim} \textrm{Flat}(0, \infty) \quad t = 1,\dots,T.$$
 
@@ -178,11 +182,9 @@ Adjustments to the target acceptance rate and maximum treedepth generally slowed
 
 Most of the parameterizations exhibit strikingly similar posterior distributions (+@fig:biopost). The *truncated* parameterization is the one exception. Credible intervals for each year's biomass are much wider, and the median values differ, sometimes substantially. Posteriors of derived quantities of interest to managers show a similar pattern (+@fig:mgt_quant). Most worryingly, the *truncated* parameterization results in values that are biased high compared to the other parameterizations, potentially leading to management decisions that are unsustainable.
 
-
 ## Catch sensitivity
 
 ### Diagnostics
-
 
 *@tbl:csd_diag demonstrates the influence of the fixed value of $\xi$ on the posterior. The magnitude of the fixed catch error clearly influences the geometry of the posterior. Smaller values result in posteriors with less curvature, as evidenced by the transitions that exceeded maximum tree depth. Large values of catch error result in a posterior with extreme curvature, potentially due to unidentifiability. It is possible that informative priors on the $F_t$ would alleviate this. Note also that the large values are particularly extreme, and fail to rule out absurdities such as negative catches.
 

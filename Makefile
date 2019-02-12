@@ -16,4 +16,5 @@ ch4.docx: notes/ch4.md notes/ch4.bib
 	pandoc --filter=pandoc-fignos --filter=pandoc-tablenos --filter=pandoc-eqnos \
 	--filter=pandoc-citeproc --bibliography="notes/ch4.bib" \
 	--csl=notes/fisheries-research.csl \
+	--reference-doc=notes/ch4_ref.docx \
 	-o notes/ch4.docx notes/ch4.md

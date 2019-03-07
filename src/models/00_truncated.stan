@@ -1,53 +1,50 @@
 data {
-  int<lower=0> T;                    // Number of years
-  real C[T];                         // Observed catch
-  real I[T];                         // CPUE index
+  int<lower=0> T;                      // Number of years
+  real C[T];                           // Observed catch
+  real I[T];                           // CPUE index
 }
 
 parameters {
-  real<lower=0.01,upper=1.2> r;       // Population growth
-  real<lower=10,upper=1000> K;        // Carrying capacity
-  real<lower=0.5,upper=100> iq;       // Inverse catchability
-  real<lower=0> isigma2;              // Process precision
-  real<lower=0> itau2;                // Observation precision
-  vector<lower=0.001,upper=2.0>[T] P; // Predicted depletion
+  /* Note the bounds declared here. These are doing what the I() operator does
+     in the original BUGS code of Meyer & Millar 1999; No T() operators are
+     necessary below (and they modify the fit of the model significantly)*/
+  real<lower=0.01, upper=1.2> r;       // Population growth
+  real<lower=10, upper=1000> K;        // Carrying capacity
+  real<lower=0.5,upper=100> iq;        // Inverse catchability
+  real<lower=0> isigma2;               // Process precision
+  real<lower=0> itau2;                 // Observation precision
+  vector<lower=0.001, upper=2.0>[T] P; // Predicted depletion
 }
 
 transformed parameters {
-  real sigma;                         // Transform to standard deviation
-  real tau;                           // Transform to standard deviation
-  real q;                             // Transform to catchability
-  vector[T] Pmed;                     // Median depletion; no process error
+  real<lower=0> sigma;                 // Transform to standard deviation
+  real<lower=0> tau;                   // Transform to standard deviation
+  real<lower=0> q;                     // Inverse catchability to catchability
+  vector[T] P_med;                     // Median depletion; no process error
 
   sigma = 1.0 / sqrt(isigma2);
   tau = 1.0 / sqrt(itau2);
-  q = 1 / iq;
+  q = 1.0 / iq;
 
-  Pmed[1] = 1;
-  // Time steps of the model
+  P_med[1] = 1;
+  // Time steps of the Schaefer biomass dynamics model
   for (t in 2:T) {
-    // Note `fmax` function call here to keep depletion positive
-    Pmed[t] = fmax(P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) -
-                   C[t - 1] / K,
-                   0.001);
+    P_med[t] = P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) - C[t - 1] / K;
   }
 }
 
 model {
   // Priors from Meyer and Millar 1999 (BUGS program appendix). Note the
   // explicit truncations (corresponding to limits declared above).
-  r ~ lognormal(-1.38, 1 / sqrt(3.845)) T[0.01, 1.2];
-  K ~ lognormal(5.042905, 1 / sqrt(3.7603664)) T[10, 1000];
-  iq ~ gamma(0.001, 0.001) T[0.5,100];
+  r ~ lognormal(-1.38, 1 / sqrt(3.845));
+  K ~ lognormal(5.042905, 1 / sqrt(3.7603664));
+  iq ~ gamma(0.001, 0.001);
   isigma2 ~ gamma(3.785518, 0.010223);
   itau2 ~ gamma(1.708603, 0.008613854);
 
   // Likelihoods
-  for (t in 1:T) {
-    // Truncated outcomes must be univariate
-    P[t] ~ lognormal(log(Pmed[t]), sigma) T[0.001, 2.0];
-    I[t] ~ lognormal(log(q * K * P[t]), tau);
-  }
+  P ~ lognormal(log(P_med), sigma);
+  I ~ lognormal(log(q * K * P), tau);
 }
 
 generated quantities {
@@ -72,4 +69,3 @@ generated quantities {
   MSY = r * K / 4;
   FMSY = r / 2;
 }
-

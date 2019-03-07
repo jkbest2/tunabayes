@@ -6,26 +6,29 @@ library(ggridges)
 library(ggsci)
 library(viridis)
 
+## Get data
+source("src/01_setup.R")
 ## Get ggplot theme
 source("src/02_fitfns.R")
 
-
 ##-Figure 1: CPUE and catch series plots----------------------------------------
-cpue_catch <- data_frame(year = 1967:1989,
-                         catch = tuna_data$C,
-                         index = tuna_data$I)
+cpue_catch <- tibble(year = 1967:1989,
+                     catch = tuna_data$C,
+                     index = tuna_data$I)
 catch_plot <- ggplot(cpue_catch, aes(x = year, y = catch)) +
   geom_line(size = 1) +
-  labs(title = "South Atlantic albacore catch",
+  labs(# title = "South Atlantic albacore catch",
        x = "Year", y = "Catch biomass (Gg)") +
   theme_jkb(10)
 cpue_plot <- ggplot(cpue_catch, aes(x = year, y = index)) +
   geom_line(size = 1) +
-  labs(title = "South Atlantic albacore catch per unit effort",
+  labs(# title = "South Atlantic albacore catch per unit effort",
        x = "Year", y = "CPUE (kg per 100 hooks)") +
   theme_jkb(10)
 cc_plot <- grid.arrange(catch_plot, cpue_plot, nrow = 2L)
-ggsave("figs/catch_cpue.png", cc_plot, width = 6, height = 4)
+ggsave("figs/fig1_catch_cpue.tiff", cc_plot, width = 6, height = 4)
+ggsave("figs/fig1_catch_cpue.pdf", cc_plot, device = cairo_pdf,
+       width = 6, height = 4)
 
 ##-Model fits-------------------------------------------------------------------
 
@@ -37,7 +40,16 @@ param_levels <- c("Centered", "Truncated",
                   "Constrained P", "Noncentered",
                   "Marginal q", "Explicit F",
                   "Explicit F marg q")
-param_colors <- pal_futurama()(7)
+wong_colors <- c(rgb(0, 0, 0, max = 255),       # Black
+                 rgb(230, 159, 0, max = 255),   # Orange
+                 rgb(86, 180, 233, max = 255),  # Sky blue
+                 rgb(0, 158, 115, max = 255),   # Bluish green
+                 rgb(240, 228, 66, max = 255),  # Yellow
+                 rgb(0, 114, 178, max = 255),   # Blue
+                 rgb(213, 94, 0, max = 255),    # Vermillion
+                 rgb(204, 121, 167, max = 255)) # Reddish purple
+param_colors <- wong_colors[2:8]
+## param_colors <- pal_futurama()(7)
 names(param_colors) <- param_levels
 
 post_df <- fit_df %>%
@@ -57,7 +69,7 @@ diag_df <- fit_df %>%
                                   function(p) attr(p, "names")[which.min(p)]),
             max_ess = map_dbl(ess, max, na.rm = TRUE))
 
-##-Table 1: sampler diagnostics-------------------------------------------------
+##-Table 2: sampler diagnostics-------------------------------------------------
 ## Generate a table for comparing diagnostics between default settings and
 ## adjusted settings.
 default_diag <- diag_df %>%
@@ -76,7 +88,7 @@ pdiag <- left_join(default_diag, adj_diag, by = "model_name") %>%
          `Exc Treedepth`, `Exc Treedepth Adj`)
 knitr::kable(pdiag)
 
-##-Table 2: effective sample sizes----------------------------------------------
+##-Table 3: effective sample sizes----------------------------------------------
 ess_df <- diag_df %>%
   select(model_name, adj, min_ess) %>%
   spread(adj, min_ess) %>%
@@ -110,7 +122,7 @@ knitr::kable(ess_df, digits = 0)
 ##   ## coord_cartesian(xlim = c(0, 20)) +
 ##   labs(title = "NUTS diagnostics before and after adjusting sampler parameters",
 ##        x = "Number of divergent samples or samples that exceed max treedepth") +
-##   plot_theme +
+##   theme_jkb(base_size = 9) +
 ##   theme(axis.title.y = element_blank())
 
 ## Generate table of timing measures (ESS, ESS per time)
@@ -141,7 +153,7 @@ time_df %>%
             data = filter(time_df, adj),
             hjust = "left", nudge_x = 0.03,
             color = "black", family = "Montserrat", size = 2.5) +
-  labs(title = "MCMC sampler efficiency",
+  labs(# title = "MCMC sampler efficiency",
        x = "Sampler tuning parameters",
        y = "Effectively independent samples per second",
        color = "Model parameterization") +
@@ -238,7 +250,7 @@ biopost_summ <- fit_df %>%
             p90 = quantile(biomass, 0.9))
 
 bp_dodge <- position_dodge(width = 0.9)
-biopost_summ %>%
+biopost_plot <- biopost_summ %>%
   ggplot(aes(x = year, y = p50,
              color = model_name, group = model_name)) +
   geom_vline(xintercept = 1989.5, linetype = "dashed",
@@ -253,12 +265,14 @@ biopost_summ %>%
            label = "Projected",
            family = "Montserrat", size = 2, color = rgb(0, 0, 0, 0.15)) +
   scale_color_manual(values = param_colors) +
-  labs(title = "Biomass posterior credible intervals",
-       x = "Year", y = "Biomass (Gg)", color = "Model name") +
+  labs(# title = "Biomass posterior credible intervals",
+       x = "Year", y = "Biomass (Gg)", color = "Parameterization") +
   coord_cartesian(ylim = c(0, 500)) +
   theme_jkb(base_size = 8) +
   theme(legend.position = c(0.9, 0.75))
-ggsave("figs/biopost.png", width = 6, height = 4)
+ggsave("figs/fig2_biopost.tiff", biopost_plot, width = 6, height = 4)
+ggsave("figs/fig2_biopost.pdf", biopost_plot, device = cairo_pdf,
+       width = 6, height = 4)
 
 
 ##-Figure 4: Parameterization management posteriors-----------------------------
@@ -327,7 +341,7 @@ fmsy_quant <- fmsy_summ %>%
   geom_point(aes(x = p50), size = 2, shape = 3) +
   scale_x_continuous(minor_breaks = seq(0, 0.4, 0.025)) +
   scale_color_manual(values = param_colors) +
-  labs(x = "FMSY") +
+  labs(x = expression(F["MSY"])) +
   theme_jkb(base_size = 9) +
   theme(axis.title.y = element_blank(),
         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
@@ -348,9 +362,11 @@ Pfinal_quant <- Pfinal_summ %>%
         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
         panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
   guides(color = FALSE)
-mgt_fig <- grid.arrange(msy_quant, fmsy_quant, Pfinal_quant, nrow = 3,
-                        top = "Posterior quantiles of management quantities")
-ggsave("figs/mgt_quant.png", mgt_fig, width = 6, height = 6)
+mgt_fig <- grid.arrange(msy_quant, fmsy_quant, Pfinal_quant, nrow = 3) #,
+                        # top = "Posterior quantiles of management quantities")
+ggsave("figs/fig3_mgt_quant.tiff", mgt_fig, width = 6, height = 6)
+ggsave("figs/fig3_mgt_quant.pdf", mgt_fig, device = cairo_pdf,
+       width = 6, height = 6)
 
 
 ## Consider the `ggridges` version
@@ -361,7 +377,7 @@ ggsave("figs/mgt_quant.png", mgt_fig, width = 6, height = 6)
 ##   scale_fill_futurama() +
 ##   coord_cartesian(xlim = c(5, 40)) +
 ##   labs(title = "Posterior distribution of MSY under different parameterizations") +
-##   plot_theme +
+##   theme_jkb(base_size = 9) +
 ##   theme(axis.title.y = element_blank()) +
 ##   guides(fill = FALSE)
 ## ggsave("figs/msy_post_ridges.png", width = 12, height = 10)
@@ -405,7 +421,7 @@ time_csd <- csd_df %>%
 
 ##-Table X: Timings by catch_sd-------------------------------------------------
 time_csd %>%
-  filter(catch_sd < 4) %>%
+  # filter(catch_sd < 4) %>%
   select(`Catch error` = catch_sd,
          `Min ESS Rate` = min_ess_rate) %>%
   knitr::kable(., digits = 3)
@@ -439,11 +455,13 @@ c_post %>%
   facet_wrap(~ c_year, scales = "free") +
   geom_vline(aes(xintercept = c_obs), data = c_orig,
              alpha = 0.5, size = 1, linetype = "dashed") +
-  scale_color_simpsons() + scale_fill_simpsons() +
-  labs(title = "Example catch posteriors",
+  ## scale_color_simpsons() + scale_fill_simpsons() +
+  scale_color_viridis(discrete = TRUE, option = "E") +
+  scale_fill_viridis(discrete = TRUE, option = "E") +
+  labs(# title = "Example catch posteriors",
        x = "Catch biomass", y = "Density",
        color = "Catch SD", fill = "Catch SD") +
-  plot_theme
+  theme_jkb(base_size = 9)
 ggsave("figs/catch_post.png", width = 12, height = 10)
 
 ## Posterior densities - Biomass
@@ -467,11 +485,11 @@ b_post %>%
   geom_density(alpha = 0.25, size = 1) +
   facet_wrap(~ b_year, scales = "free") +
   scale_color_startrek() + scale_fill_startrek() +
-  labs(title = "Example biomass posteriors",
+  labs(# title = "Example biomass posteriors",
        x = "Biomass",
        y = "Density",
        fill = "Catch SD", color = "Catch SD") +
-  plot_theme
+  theme_jkb(base_size = 9)
 ggsave("figs/biomass_post_dens.png", width = 12, height = 10)
 
 ##-Figure X: Posterior biomass series
@@ -491,7 +509,6 @@ b_series <- csd_df %>%
             p90 = quantile(biomass, 0.9)) %>%
   ungroup()
 
-
 b_series %>%
   mutate(catch_sd = round(catch_sd, 3),
          catch_sd = factor(catch_sd)) %>%
@@ -510,13 +527,15 @@ b_series %>%
   annotate(geom = "text", x = 1989.6, y = 0, hjust = 0,
            label = "Projected",
            family = "Montserrat", size = 2, color = rgb(0, 0, 0, 0.15)) +
-  labs(title = "Biomass posteriors with varying catch errors",
+  labs(#title = "Biomass posteriors with varying catch errors",
        x = "Year", y = "Biomass (Gg)",
        color = "Catch error\n (std. dev.)", fill = "Catch error\n (std. dev.)") +
   coord_cartesian(ylim = c(0, 400)) +
   theme_jkb(base_size = 9) +
-  theme(legend.position = c(0.925, 0.8))
-ggsave("figs/csd_biomass.png", width = 6, height = 4)
+  theme(legend.position = c(0.925, 0.75))
+ggsave("figs/fig4_csd_biomass.tiff", width = 6, height = 4)
+ggsave("figs/fig4_csd_biomass.pdf", device = cairo_pdf,
+       width = 6, height = 4)
 
 ## Posterior densities - MSY
 ## msy_post <- csd_df %>%
@@ -534,7 +553,7 @@ ggsave("figs/csd_biomass.png", width = 6, height = 4)
 ##        x = "MSY", y = "Density",
 ##        color = "Catch error\n (std. dev.)",
 ##        fill = "Catch error\n (std. dev.)") +
-##   plot_theme +
+##   theme_jkb(base_size = 9) +
 ##   theme(legend.position = c(0.925, 0.8)) +
 ## ggsave("figs/msy_post.png", width = 12, height = 10)
 
@@ -548,7 +567,7 @@ ggsave("figs/csd_biomass.png", width = 6, height = 4)
 ## fmsy_post %>%
 ##   ggplot(aes(x = FMSY, color = catch_sd, fill = catch_sd)) +
 ##   geom_density(alpha = 0.2, size = 2) +
-##   plot_theme
+##   theme_jkb(base_size = 9)
 ## ggsave("figs/fmsy_post.png", width = 12, height = 10)
 
 ##-Figure 4: Parameterization management posteriors-----------------------------
@@ -620,7 +639,7 @@ fmsy_quant <- fmsy_summ %>%
   geom_point(aes(x = p50), size = 2, shape = 3) +
   scale_x_continuous(minor_breaks = seq(0, 0.4, 0.025)) +
   scale_color_viridis(discrete = TRUE, option = "E") +
-  labs(x = "FMSY") +
+  labs(x = expression(F["MSY"])) +
   theme_jkb(base_size = 9) +
   theme(axis.title.y = element_blank(),
         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
@@ -642,6 +661,8 @@ Pfinal_quant <- Pfinal_summ %>%
         panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
   guides(color = FALSE)
 mgt_fig <- grid.arrange(msy_quant, fmsy_quant, Pfinal_quant, nrow = 3,
-                        top = "Posterior quantiles of management quantities",
+                        # top = "Posterior quantiles of management quantities",
                         left = "Catch error (std. dev.)")
-ggsave("figs/csd_mgt.png", mgt_fig, width = 6, height = 6)
+ggsave("figs/fig5_csd_mgt.tiff", mgt_fig, width = 6, height = 6)
+ggsave("figs/fig5_csd_mgt.pdf", device = cairo_pdf,
+       mgt_fig, width = 6, height = 6)

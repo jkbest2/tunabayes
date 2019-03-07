@@ -14,8 +14,10 @@ stanfit_parcoord <- function(stanfit, transform = scale,
 }
 
 theme_jkb <- function(base_size = 11,
-                      title_family = "Rubik",
-                      base_family = "Montserrat") {
+                      title_family = "Arial",
+                      base_family = "Arial") {
+                      ## title_family = "Rubik",
+                      ## base_family = "Montserrat") {
   sizes <- c(8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32)
   base_idx <- which(base_size == sizes)
   theme(

@@ -32,7 +32,7 @@ ggsave("figs/fig1_catch_cpue.pdf", cc_plot, device = cairo_pdf,
 
 ##-Model fits-------------------------------------------------------------------
 
-fit_datetime <- "2018-12-11 22:42:05"
+fit_datetime <- "2019-03-07 14:17:09"
 load(paste0("results/", fit_datetime, "_fits.Rdata"))
 
 ## Define colors for parameterizations

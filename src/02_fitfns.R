@@ -49,7 +49,20 @@ theme_jkb <- function(base_size = 11,
 ## Most parameters are drawn from their priors, P uses the data (assuming that
 ## I[1] is approximately P = 1) with some noise thrown in. Initial values for
 
-## Initial values for truncated and centered models
+## Initial values for truncated models
+init_trunc <- function(chain_id) {
+  isigma2 <- rgamma(1, 3.785518, rate = 0.010223)
+  list(r = rlnorm(1, -1.38, 1 / sqrt(3.845)),
+       K = rlnorm(1, 5.042905, 1 / sqrt(3.7603664)),
+       iq = runif(1, 1 / 0.5, 1 / 0.15),
+       isigma2 = isigma2,
+       itau2 = rgamma(1, 1.708603, rate = 0.008613854),
+       P = rlnorm(tuna_data$T,
+                  log(tuna_data$I / tuna_data$I[1]),
+                  1 / sqrt(isigma2)))
+}
+
+## Initial values for centered models
 init_cent <- function(chain_id) {
   sigma2 <- 1 / rgamma(1, 3.785518, rate = 0.010223)
   list(r = rlnorm(1, -1.38, 1 / sqrt(3.845)),

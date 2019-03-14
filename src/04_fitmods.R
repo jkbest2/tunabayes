@@ -16,8 +16,8 @@ adj_td = list(max_treedepth = 15L)
 
 mod_df <- tribble(
   ~ model_name       , ~ adj,   ~ model_file, ~ control,       ~ init,
-  "Truncated"        , FALSE, "00_truncated",      NULL,    init_cent,
-  "Truncated"        ,  TRUE, "00_truncated",    adj_ad,    init_cent,
+  "Truncated"        , FALSE, "00_truncated",      NULL,   init_trunc,
+  "Truncated"        ,  TRUE, "00_truncated",    adj_ad,   init_trunc,
   "Centered"         , FALSE,  "01_centered",      NULL,    init_cent,
   "Centered"         ,  TRUE,  "01_centered",    adj_ad,    init_cent,
   "Noncentered"      , FALSE,    "10_ncproc",      NULL,  init_ncproc,

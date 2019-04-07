@@ -1,0 +1,8 @@
+""," ","Divergences","Divergences Adj","Exc Treedepth","Exc Treedepth Adj"
+"1","MM",56,0,0,0
+"2","Centered",89,0,0,0
+"3","Noncentered",5639,626,0,0
+"4","Marginal q",102,0,0,0
+"5","Explicit F",0,0,11383,0
+"6","Explicit F marg q",0,0,11162,0
+"7","Constrained P",23,0,0,0

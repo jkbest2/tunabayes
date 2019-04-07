@@ -36,7 +36,7 @@ fit_datetime <- "2019-03-07 14:17:09"
 load(paste0("results/", fit_datetime, "_fits.Rdata"))
 
 ## Define colors for parameterizations
-param_levels <- c("Centered", "Truncated",
+param_levels <- c("Centered", "MM",
                   "Constrained P", "Noncentered",
                   "Marginal q", "Explicit F",
                   "Explicit F marg q")
@@ -51,6 +51,12 @@ wong_colors <- c(rgb(0, 0, 0, max = 255),       # Black
 param_colors <- wong_colors[2:8]
 ## param_colors <- pal_futurama()(7)
 names(param_colors) <- param_levels
+
+## Rename Truncated to MM (Meyer & Millar)
+fit_df <- fit_df %>%
+  mutate(model_name = recode(model_name,
+                             Truncated = "MM",
+                             default = model_name))
 
 post_df <- fit_df %>%
   transmute(model_name = model_name,
@@ -87,15 +93,37 @@ pdiag <- left_join(default_diag, adj_diag, by = "model_name") %>%
          `Divergences`, `Divergences Adj`,
          `Exc Treedepth`, `Exc Treedepth Adj`)
 knitr::kable(pdiag)
+write.csv(pdiag, file = "figs/table2_sampdiags.csv")
 
 ##-Table 3: effective sample sizes----------------------------------------------
 ess_df <- diag_df %>%
   select(model_name, adj, min_ess) %>%
   spread(adj, min_ess) %>%
-  rename(` ` = model_name,
-         Default = `FALSE`,
-         Adjusted = `TRUE`)
-knitr::kable(ess_df, digits = 0)
+  rename(ess_def = `FALSE`,
+         ess_adj = `TRUE`)
+## knitr::kable(ess_df, digits = 0)
+
+## Generate table of timing measures (ESS, ESS per time)
+time_df <- fit_df %>%
+  mutate(model_name = factor(model_name, param_levels)) %>%
+  left_join(diag_df, by = c("model_name", "adj")) %>%
+  mutate(times = map(fit, get_elapsed_time)) %>%
+  transmute(model_name = model_name,
+            adj = adj,
+            warmup = map_dbl(times, ~ sum(.[, "warmup"])),
+            sample = map_dbl(times, ~ sum(.[, "sample"])),
+            min_ess_rate = min_ess / sample,
+            exp_ess_rate = exp_ess / sample)
+
+tbl3_df <- time_df %>%
+  select(model_name, adj, min_ess_rate) %>%
+  spread(adj, min_ess_rate) %>%
+  rename(rate_def = `FALSE`,
+         rate_adj = `TRUE`) %>%
+  full_join(ess_df, by = "model_name") %>%
+  select(model_name, ess_def, ess_adj, rate_def, rate_adj)
+
+write.csv(tbl3_df, file = "figs/table3_efficiency.csv")
 
 ##-Table NOT USED: diagnostic changes with adjustments
 ## Not sure if this will be helpful. May consider a plot where all counts are
@@ -124,18 +152,6 @@ knitr::kable(ess_df, digits = 0)
 ##        x = "Number of divergent samples or samples that exceed max treedepth") +
 ##   theme_jkb(base_size = 9) +
 ##   theme(axis.title.y = element_blank())
-
-## Generate table of timing measures (ESS, ESS per time)
-time_df <- fit_df %>%
-  mutate(model_name = factor(model_name, param_levels)) %>%
-  left_join(diag_df, by = c("model_name", "adj")) %>%
-  mutate(times = map(fit, get_elapsed_time)) %>%
-  transmute(model_name = model_name,
-            adj = adj,
-            warmup = map_dbl(times, ~ sum(.[, "warmup"])),
-            sample = map_dbl(times, ~ sum(.[, "sample"])),
-            min_ess_rate = min_ess / sample,
-            exp_ess_rate = exp_ess / sample)
 
 ##-Figure 2: Plot of ESS rates with default and adjusted sampler settings------
 ## Mostly looks good. Need to figure out how to adjust margins to balance
@@ -231,7 +247,7 @@ ggsave("figs/sampler_efficiency.png", width = 6, height = 4)
 ##   theme(legend.position = c(0.9, 0.75))
 ## ggsave("figs/msy_post_dens.png", width = 6, height = 4)
 
-##-Figure 3: Parameterization biomass time series-------------------------------
+##-Figure 2: Parameterization biomass time series-------------------------------
 varyear <- paste0("Biomass[", 1:24, "]")
 names(varyear) <- 1967:1990
 biopost_summ <- fit_df %>%
@@ -253,21 +269,22 @@ bp_dodge <- position_dodge(width = 0.9)
 biopost_plot <- biopost_summ %>%
   ggplot(aes(x = year, y = p50,
              color = model_name, group = model_name)) +
-  geom_vline(xintercept = 1989.5, linetype = "dashed",
-             size = 0.5, color = rgb(0, 0, 0, 0.15)) +
+  ## geom_vline(xintercept = 1989.5, linetype = "dashed",
+  ##            size = 0.5, color = rgb(0, 0, 0, 0.15)) +
   geom_linerange(aes(ymin = p10, ymax = p90),
                position = bp_dodge, size = 0.5) +
   geom_linerange(aes(ymin = p25, ymax = p75),
                  position = bp_dodge, size = 0.75) +
   geom_point(position = bp_dodge,
              size = 2.5, shape = "-", color = "black") +
-  annotate(geom = "text", x = 1989.6, y = 0, hjust = 0,
-           label = "Projected",
-           family = "Montserrat", size = 2, color = rgb(0, 0, 0, 0.15)) +
+  ## annotate(geom = "text", x = 1989.6, y = 10, hjust = 0,
+  ##          label = "Projected",
+  ##          family = "Arial", size = 2, color = rgb(0, 0, 0, 0.15)) +
   scale_color_manual(values = param_colors) +
-  labs(# title = "Biomass posterior credible intervals",
-       x = "Year", y = "Biomass (Gg)", color = "Parameterization") +
-  coord_cartesian(ylim = c(0, 500)) +
+  labs(x = "Year", y = "Biomass (Gg)", color = "Parameterization") +
+  coord_cartesian(ylim = c(0, 400),
+                  xlim = c(1966.25, 1990.75),
+                  expand = FALSE) +
   theme_jkb(base_size = 8) +
   theme(legend.position = c(0.9, 0.75))
 ggsave("figs/fig2_biopost.tiff", biopost_plot, width = 6, height = 4)
@@ -275,7 +292,7 @@ ggsave("figs/fig2_biopost.pdf", biopost_plot, device = cairo_pdf,
        width = 6, height = 4)
 
 
-##-Figure 4: Parameterization management posteriors-----------------------------
+##-Figure 3: Parameterization management posteriors-----------------------------
 msy_summ <- fit_df %>%
   filter(adj) %>%
   transmute(model_name = factor(model_name, levels = rev(param_levels)),
@@ -316,7 +333,7 @@ Pfinal_summ <- fit_df %>%
             p90 = quantile(`Biomass 1990`, 0.9),
             p975 = quantile(`Biomass 1990`, 0.975))
 
-##-Figure 4: Quantiles for comparison between parameterizations-----------------
+##-Figure 3: Quantiles for comparison between parameterizations-----------------
 msy_quant <- msy_summ %>%
   ggplot(aes(y = model_name, yend = model_name,
              color = model_name, group = model_name)) +
@@ -408,6 +425,7 @@ diag_csd <- csd_df %>%
 ##-Table X: Diagnostics by catch_sd---------------------------------------------
 ## Edited manually for sigfigs etc!
 knitr::kable(diag_csd)
+write.csv(diag_csd, file = "figs/table4_diagcsd.csv")
 
 ## Fit timing
 time_csd <- csd_df %>%
@@ -420,11 +438,12 @@ time_csd <- csd_df %>%
             exp_ess_rate = exp_ess / sample)
 
 ##-Table X: Timings by catch_sd-------------------------------------------------
-time_csd %>%
+time_csd2 <- time_csd %>%
   # filter(catch_sd < 4) %>%
   select(`Catch error` = catch_sd,
-         `Min ESS Rate` = min_ess_rate) %>%
-  knitr::kable(., digits = 3)
+         `Min ESS Rate` = min_ess_rate)
+knitr::kable(time_csd2, digits = 3)
+write.csv(time_csd, file = "figs/table4a_timecsd.csv")
 
 
 ## Posterior densities - catches
@@ -492,7 +511,7 @@ b_post %>%
   theme_jkb(base_size = 9)
 ggsave("figs/biomass_post_dens.png", width = 12, height = 10)
 
-##-Figure X: Posterior biomass series
+##-Figure 4: Posterior biomass series
 b_series <- csd_df %>%
   filter(catch_sd < 4) %>%
   transmute(catch_sd = catch_sd,
@@ -514,8 +533,8 @@ b_series %>%
          catch_sd = factor(catch_sd)) %>%
   ggplot(aes(x = year, y = p50,
              color = catch_sd, fill = catch_sd)) +
-  geom_vline(xintercept = 1989.5, linetype = "dashed",
-             size = 0.5, color = rgb(0, 0, 0, 0.15)) +
+  ## geom_vline(xintercept = 1989.5, linetype = "dashed",
+  ##            size = 0.5, color = rgb(0, 0, 0, 0.15)) +
   geom_linerange(aes(ymin = p10, ymax = p90), size = 0.5,
                  position = bp_dodge) +
   geom_linerange(aes(ymin = p25, ymax = p75), size = 0.75,
@@ -524,13 +543,15 @@ b_series %>%
              shape = "-", size = 2.5, color = "black") +
   scale_color_viridis(discrete = TRUE, option = "E") +
   scale_fill_viridis(discrete = TRUE, option = "E") +
-  annotate(geom = "text", x = 1989.6, y = 0, hjust = 0,
-           label = "Projected",
-           family = "Montserrat", size = 2, color = rgb(0, 0, 0, 0.15)) +
+  ## annotate(geom = "text", x = 1989.6, y = 0, hjust = 0,
+  ##          label = "Projected",
+  ##          family = "Montserrat", size = 2, color = rgb(0, 0, 0, 0.15)) +
   labs(#title = "Biomass posteriors with varying catch errors",
        x = "Year", y = "Biomass (Gg)",
        color = "Catch error\n (std. dev.)", fill = "Catch error\n (std. dev.)") +
-  coord_cartesian(ylim = c(0, 400)) +
+  coord_cartesian(ylim = c(0, 400),
+                  xlim = c(1966.25, 1990.75),
+                  expand = FALSE) +
   theme_jkb(base_size = 9) +
   theme(legend.position = c(0.925, 0.75))
 ggsave("figs/fig4_csd_biomass.tiff", width = 6, height = 4)
@@ -570,7 +591,7 @@ ggsave("figs/fig4_csd_biomass.pdf", device = cairo_pdf,
 ##   theme_jkb(base_size = 9)
 ## ggsave("figs/fmsy_post.png", width = 12, height = 10)
 
-##-Figure 4: Parameterization management posteriors-----------------------------
+##-Figure 5: Parameterization management posteriors-----------------------------
 msy_summ <- csd_df %>%
   filter(catch_sd < 4) %>%
   transmute(catch_sd = round(catch_sd, 3),

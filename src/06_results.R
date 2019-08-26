@@ -60,10 +60,10 @@ fit_df <- fit_df %>%
 
 post_df <- fit_df %>%
   transmute(model_name = model_name,
-            post = map(fit, rstan::extract, inc_warmup = FALSE))
+            post = purrr::map(fit, rstan::extract, inc_warmup = FALSE))
 
 diag_df <- fit_df %>%
-  mutate(ess = map(fit, ~ summary(.)$summary[, "n_eff"])) %>%
+  mutate(ess = purrr::map(fit, ~ summary(.)$summary[, "n_eff"])) %>%
   transmute(model_name = factor(model_name, param_levels),
             adj = adj,
             td_total = map_dbl(fit, get_num_max_treedepth),
@@ -107,7 +107,7 @@ ess_df <- diag_df %>%
 time_df <- fit_df %>%
   mutate(model_name = factor(model_name, param_levels)) %>%
   left_join(diag_df, by = c("model_name", "adj")) %>%
-  mutate(times = map(fit, get_elapsed_time)) %>%
+  mutate(times = purrr::map(fit, get_elapsed_time)) %>%
   transmute(model_name = model_name,
             adj = adj,
             warmup = map_dbl(times, ~ sum(.[, "warmup"])),
@@ -159,7 +159,7 @@ write.csv(tbl3_df, file = "figs/table3_efficiency.csv")
 time_df %>%
   ggplot(aes(x = adj, y = min_ess_rate,
              color = model_name, group = model_name)) +
-  geom_path(size = 1) + geom_point(size = 1.5) +
+  geom_path(size = 2) + geom_point(size = 3) +
   scale_y_log10(minor_breaks = c(seq(0.0, 1, 0.1),
                                  seq(1, 10, 1),
                                  seq(10, 100, 10))) +
@@ -168,13 +168,13 @@ time_df %>%
   geom_text(aes(label = model_name),
             data = filter(time_df, adj),
             hjust = "left", nudge_x = 0.03,
-            color = "black", family = "Montserrat", size = 2.5) +
+            color = "black", family = "Montserrat", size = 3) +
   labs(# title = "MCMC sampler efficiency",
        x = "Sampler tuning parameters",
-       y = "Effectively independent samples per second",
+       y = "ESS Rate",
        color = "Model parameterization") +
   guides(color = FALSE)+
-  theme_jkb(base_size = 9) +
+  theme_jkb(base_size = 16) +
   theme(panel.grid.major.y = element_line(color = rgb(0, 0, 0, 0.15)),
         panel.grid.minor.y = element_line(color = rgb(0, 0, 0, 0.05)))
 ggsave("figs/sampler_efficiency.png", width = 6, height = 4)
@@ -253,7 +253,7 @@ names(varyear) <- 1967:1990
 biopost_summ <- fit_df %>%
   filter(adj) %>%
   transmute(model_name = factor(model_name, param_levels),
-            B = map(fit, as.data.frame, pars = "Biomass")) %>%
+            B = purrr::map(fit, as.data.frame, pars = "Biomass")) %>%
   unnest() %>% unnest() %>%
   rename(!!varyear) %>%
   gather("year", "biomass", -model_name) %>%
@@ -285,8 +285,9 @@ biopost_plot <- biopost_summ %>%
   coord_cartesian(ylim = c(0, 400),
                   xlim = c(1966.25, 1990.75),
                   expand = FALSE) +
-  theme_jkb(base_size = 8) +
+  theme_jkb(base_size = 11) +
   theme(legend.position = c(0.9, 0.75))
+ggsave("figs/fig2_biopost.png", biopost_plot, width = 6, height = 4)
 ggsave("figs/fig2_biopost.tiff", biopost_plot, width = 6, height = 4)
 ggsave("figs/fig2_biopost.pdf", biopost_plot, device = cairo_pdf,
        width = 6, height = 4)

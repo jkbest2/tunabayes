@@ -1,6 +1,6 @@
-docs/
 figs/
 results/
+RevisionResponse.*
 
 .Rproj.user
 .Rhistory
@@ -41,8 +41,7 @@ docs
 *.html
 *.rds
 /*.Rdata
+*.xls*
 
 # Ignore .directory files from Dolphin file manager (KDE)
 .directory
-/RevisionResponse.org
-/RevisionResponse.md

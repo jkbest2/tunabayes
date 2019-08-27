@@ -44,3 +44,5 @@ docs
 
 # Ignore .directory files from Dolphin file manager (KDE)
 .directory
+/RevisionResponse.org
+/RevisionResponse.md

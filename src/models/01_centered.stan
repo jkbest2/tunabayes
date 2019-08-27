@@ -50,7 +50,7 @@ parameters {
 transformed parameters {
   real<lower=0> sigma;             // Process standard deviation parameter
   real<lower=0> tau;               // Observation standard deviation parameter
-  vector[T] P_med;                 // Median depletion; no process error
+  vector<lower=0>[T] P_med;        // Median depletion; no process error
 
   // Priors from Meyer & Millar 1999 are on the variance (originally precision)
   // parameter, but Stan takes a standard deviation parameter.

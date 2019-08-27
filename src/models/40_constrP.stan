@@ -17,6 +17,37 @@ functions {
     }
     return P_upper;
   }
+
+  // Define a single step forward in time using Pella-Tomlinson dynamics. This
+  // uses the parameterization presented in Winker et al. 2018.
+  real pella_tomlinson(real P0, real r, real K, real m, real C) {
+    real m1;
+    real surplus_prod;
+    real P1;
+
+    m1 = m - 1;
+    surplus_prod = r / m1 * P0 * (1 - P0 ^ m1);
+    P1 = P0 + surplus_prod - C / K;
+
+    return P1;
+  }
+
+  // Calculate BMSY
+  real pt_bmsy(real K, real m) {
+    real PMSY;
+    PMSY = m ^ (-1 / (m - 1));
+    return K * PMSY;
+  }
+
+  // Calculate FMSY
+  real pt_fmsy(real r, real m) {
+    return r / m;
+  }
+
+  // Use above to calculate MSY
+  real pt_msy(real fmsy, real bmsy) {
+    return fmsy * bmsy;
+  }
 }
 
 data {
@@ -29,6 +60,7 @@ parameters {
   real<lower=0> r; // Population growth
   real<lower=0> K; // Carrying capacity
   real<lower=0> q;                 // Catchability
+  real<lower=1,upper=10> m;        // FIXME Pella-Tomlinson shape
   real<lower=0> sigma2;            // Process variability
   real<lower=0> tau2;              // Observation variability
   vector<lower=0,upper=1>[T] P_raw; // Predicted depletion (state variable).
@@ -58,7 +90,7 @@ transformed parameters {
   // Initial depletion
   P_med[1] = 1;
   for (t in 2:T) {
-    P_med[t] = P[t - 1] + r * P[t - 1] * (1 - P[t - 1]) - C[t - 1] / K;
+    P_med[t] = pella_tomlinson(P[t - 1], r, K, m, C[t - 1]);
   }
 }
 
@@ -71,12 +103,15 @@ model {
   target += -log(q);
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
+  // FIXME Prior on Pella-Tomlinson shape parameter
+  m ~ uniform(1, 10);
 
   for (t in 1:T) {
     // Add the log-Jacobian correction for the change of variables from P_raw to
     // P. This is required because the bounds depend on the parameters r and K.
     J_corr[t] = 0.5 * log((1 + r)^2 - 4 * r * C[t] / K) - log(r);
     target += J_corr[t];
+    // Process likelihood
     // The `log` here is the practical reason to prevent `P_med[t]` from going
     // negative. The Jacobian correction is necessary here because the
     // constraints depend on other parameters. This also makes it necessary to
@@ -92,8 +127,9 @@ generated quantities {
   vector[T + 1] Biomass;           // Biomass series with one step ahead prediction
   real P_medfinal;                 // One step ahead median depletion
   real P_final;                    // One step ahead depletion
-  real MSY;                        // Maximum sustainable yield
+  real BMSY;                       // Biomass at MSY
   real FMSY;                       // Fishing mortality to achieve MSY
+  real MSY;                        // Maximum sustainable yield
 
   // Calculate biomass at each time step from depletion and K, then simulate
   // one step ahead and include that final biomass
@@ -101,12 +137,13 @@ generated quantities {
     Biomass[t] = K * P[t];
   }
   // One-step-ahead projection, including process error
-  P_medfinal = fmax(P[T] + r * P[T] * (1 - P[T]) - C[T] / K,
-                    0.001);
+  P_medfinal = pella_tomlinson(P[T],r, K, m, C[T]);
   P_final = lognormal_rng(log(P_medfinal), sigma);
   Biomass[T + 1] = K * P_final;
 
   // Management values
-  MSY = r * K / 4;
-  FMSY = r / 2;
+  BMSY = pt_bmsy(K, m);
+  FMSY = pt_fmsy(r, m);
+  MSY  = pt_msy(BMSY, FMSY);
 }
+

@@ -107,6 +107,7 @@ init_expF <- function(chain_id) {
        F = runif(n_years, 1, 3),
        sigma2 = sigma2,
        tau2 = 1 / rgamma(1, 1.708603, rate = 0.008613854),
+       catch_cv = exp(5),
        P = rlnorm(tuna_data$T,
                   log(tuna_data$I / tuna_data$I[1]),
                   sqrt(sigma2)))

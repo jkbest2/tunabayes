@@ -2,9 +2,9 @@ data {
   int<lower=0> T;                  // Number of years
   vector[T] C;                     // Observed catch
   vector[T] I;                     // CPUE index
-  real catch_sd;                   // Standard deviation of catch obs; no data
-                                   // to inform this so pass as data. Could be
-                                   // worth trying a series of values.
+  real catch_cv_prior_rate;        // Rate parameter on the exponential prior of
+                                   // the catch error standard deviation
+                                   // parameter
 }
 
 parameters {
@@ -14,17 +14,25 @@ parameters {
   vector<lower=0>[T] F;            // Instantaneous fishing mortality
   real<lower=0> sigma2;            // Process variability
   real<lower=0> tau2;              // Observation variability
+  real<lower=0> catch_cv;          // CV of catch observations
   vector<lower=0>[T] P;            // Predicted depletion
 }
 
 transformed parameters {
-  real<lower=0> sigma;             // Transform to standard deviation
-  real<lower=0> tau;               // Transform to standard deviation
+  real<lower=0> sigma;             // Process standard deviation
+  real<lower=0> tau;               // Observation standard deviation
+  real<lower=0> xi;                // Standard deviation of catch obs.
   vector[T] P_med;                 // Median depletion; no process error
   vector[T] C_pred;                // Predicted catch, after error
 
+  // Priors in Meyer and Millar 1999 are in terms of variance, but Stan uses
+  // standard deviation as second parameter of the log Normal distribution
   sigma = sqrt(sigma2);
   tau = sqrt(tau2);
+  // Coefficient of variation is a more concrete parameter to reason about, so
+  // the prior is placed there. The log Normal distribution takes the standard
+  // deviation parameter however, so it is necessary to convert CV.
+  xi = sqrt(log(catch_cv^2 + 1));
 
   // Initial depletion and catch. Note that catch occurs *after* production
   // here.
@@ -50,11 +58,15 @@ model {
   target += -log(q);
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
+  // Exponential prior on catch observation coefficient of variation
+  catch_cv ~ exponential(catch_cv_prior_rate);
 
-  // Likelihoods
+  // State likelihoods
   P ~ lognormal(log(P_med), sigma);
+  // Observation likelihood
   I ~ lognormal(log(q * K * P), tau);
-  C ~ normal(C_pred, catch_sd);
+  // Catch observation likelihood
+  C ~ lognormal(log(C_pred), xi);
 }
 
 generated quantities {

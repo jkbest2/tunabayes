@@ -26,19 +26,10 @@ post %>%
 ### This is a basic prior predictive check, used to set a prior on the
 ### coefficient of variation of the catch observations for the explicit F
 ### parameterizations.
-## Need the data
+## Import the data and source the CV-related functions
 source("src/01_setup.R")
+source("src/02_fitfns.R")
 library(ggridges)
-
-## Convert the coefficient of variation of a log Normal distribution to a
-## standard deviation parameter, as required by the R rlnorm function.
-convert_cv_sigma <- function(cv) sqrt(log(cv^2 + 1))
-## Convert the standard deviation function of the log normal to a coefficient of
-## variation.
-convert_sigma_cv <- function(sigma) sqrt(exp(sigma^2) - 1) 
-## Calculate the exponential rate that gives a probability of p that the cv is
-## less than cv_lim.
-cv_prior_rate <- function(cv_lim, p) -log(1 - p) / cv_lim
 
 ## Find the value of sigma that gives an 80% probability that catch is within
 ## about 10% of the observed value.

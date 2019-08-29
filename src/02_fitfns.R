@@ -156,3 +156,12 @@ make_init_list <- function(n, post_list) {
   lapply(it, function(i) get_post_sample(i, post_list))
 }
 
+## Convert the coefficient of variation of a log Normal distribution to a
+## standard deviation parameter, as required by the R rlnorm function.
+convert_cv_sigma <- function(cv) sqrt(log(cv^2 + 1))
+## Convert the standard deviation function of the log normal to a coefficient of
+## variation.
+convert_sigma_cv <- function(sigma) sqrt(exp(sigma^2) - 1) 
+## Calculate the exponential rate that gives a probability of p that the cv is
+## less than cv_lim.
+cv_prior_rate <- function(cv_lim, p) -log(1 - p) / cv_lim

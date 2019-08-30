@@ -94,6 +94,10 @@ Schaefer_diags <- Schaefer_fits %>%
 ## Generate efficiency plots with divergence diagnostics added
 source("42_figX_effplots.R")
 
+## Plot the number of divergences and treedepth warnings as a function of
+## target acceptance rate.
+source("43_figX_diagplots.R")
+
 ## ##-Table 2: sampler diagnostics-------------------------------------------------
 ## ## Generate a table for comparing diagnostics between default settings and
 ## ## adjusted settings.

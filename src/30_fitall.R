@@ -32,4 +32,5 @@ adapt_delta_values <- c(seq(0.7, 0.95, 0.05), 0.975, 0.99, 0.999)
 
 source("src/31_fitfullPT.R")
 source("src/32_fitfixedPT.R")
+source("src/33_fitSchaefer.R")
 

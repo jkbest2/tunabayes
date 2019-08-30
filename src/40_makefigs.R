@@ -1,34 +1,22 @@
+## Load required packages
+## Stan
 library(rstan)
+## Stan-adjacent plotting library
 library(bayesplot)
+## Data munging and ggplot-ing
 library(tidyverse)
 library(gridExtra)
 library(ggridges)
 library(ggsci)
 library(viridis)
 
-## Get data
-source("src/01_setup.R")
-## Get ggplot theme
-source("src/02_fitfns.R")
+## Source plot specifics
+source("src/02_plotthemes.R")
+## Load data
+source("src/10_data.R")
 
-##-Figure 1: CPUE and catch series plots----------------------------------------
-cpue_catch <- tibble(year = 1967:1989,
-                     catch = tuna_data$C,
-                     index = tuna_data$I)
-catch_plot <- ggplot(cpue_catch, aes(x = year, y = catch)) +
-  geom_line(size = 1) +
-  labs(# title = "South Atlantic albacore catch",
-       x = "Year", y = "Catch biomass (Gg)") +
-  theme_jkb(10)
-cpue_plot <- ggplot(cpue_catch, aes(x = year, y = index)) +
-  geom_line(size = 1) +
-  labs(# title = "South Atlantic albacore catch per unit effort",
-       x = "Year", y = "CPUE (kg per 100 hooks)") +
-  theme_jkb(10)
-cc_plot <- grid.arrange(catch_plot, cpue_plot, nrow = 2L)
-ggsave("figs/fig1_catch_cpue.tiff", cc_plot, width = 6, height = 4)
-ggsave("figs/fig1_catch_cpue.pdf", cc_plot, device = cairo_pdf,
-       width = 6, height = 4)
+## Plot and save Figure 1: CPUE and catch series plots
+source("src/41_fig1_data.R")
 
 ##-Model fits-------------------------------------------------------------------
 

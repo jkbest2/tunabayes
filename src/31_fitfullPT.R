@@ -1,3 +1,6 @@
+## Source common data, adapt_delta values, etc.
+source("src/30_fitall.R")
+
 ## In order to avoid needing to recompile the model every run, first compile
 ## each model in global scope.
 ## <https://discourse.mc-stan.org/t/stan-recompile-to-avoid-r-from-crashing/2631/2>

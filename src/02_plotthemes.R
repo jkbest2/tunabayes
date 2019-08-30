@@ -51,7 +51,8 @@ param_levels <- c("Centered",
                   "Noncentered",
                   "Marginal q",
                   "Explicit F",
-                  "Explicit F marg q")
+                  "Explicit F marg q",
+                  "Constrained P")
 wong_colors <- c(rgb(0, 0, 0, max = 255),       # Black
                  rgb(230, 159, 0, max = 255),   # Orange
                  rgb(86, 180, 233, max = 255),  # Sky blue
@@ -60,7 +61,12 @@ wong_colors <- c(rgb(0, 0, 0, max = 255),       # Black
                  rgb(0, 114, 178, max = 255),   # Blue
                  rgb(213, 94, 0, max = 255),    # Vermillion
                  rgb(204, 121, 167, max = 255)) # Reddish purple
-param_colors <- wong_colors[2:6]
-## Name these so that they will be picked up in plots below.
-names(param_colors) <- param_levels
+
+## Make separate PT and Schaefer color vectors because Schaefer fits include the
+## Constrained P parameterization.
+PT_colors <- wong_colors[2:6]
+names(PT_colors) <- param_levels[1:5]
+
+Schaefer_colors <- wong_colors[2:7]
+names(PT_colors) <- param_levels
 

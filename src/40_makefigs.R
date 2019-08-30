@@ -20,74 +20,84 @@ source("src/41_fig1_data.R")
 
 ##-Extract relevant information from model fits----------------------------------
 
-### Preliminaries
-load("results/adapt_delta_fits.Rdata")
+## Load the fits of the models with Pella-Tomlinson dynamics and estimated shape
+## parameter
+load("results/fullPT_fits.Rdata")
+## Load the fits of the models with Pella-Tomlinson dynamics of fixed shape
+load("results/fixedPT_fits.Rdata")
+## Load the fits of the models with Schaefer dynamics
+load("results/Schaefer_fits.Rdata")
+
+## NOTE Obviously it would be preferable to put each of these tidy flows into a
+## function, but I don't have time to figure out tidyeval right now.
 
 ## Extract posteriors from `stanfit` objects. Need to use package namespaces due
-## to conflicts.
-post_df <- fit_df %>%
+## to conflicts. Note that `purrr::map` and `rstan::extract` are namespaced due
+## to conflicts with other loaded packages.
+fullPT_posts <- fullPT_fits %>%
+  transmute(model_name = model_name,
+            adapt_delta = adapt_delta,
+            post = purrr::map(fit, rstan::extract, inc_warmup = FALSE))
+fixedPT_posts <- fixedPT_fits %>%
+  transmute(model_name = model_name,
+            adapt_delta = adapt_delta,
+            post = purrr::map(fit, rstan::extract, inc_warmup = FALSE))
+Schaefer_posts <- Schaefer_fits %>%
   transmute(model_name = model_name,
             adapt_delta = adapt_delta,
             post = purrr::map(fit, rstan::extract, inc_warmup = FALSE))
 
-## Extract diagnostics from each fit
-diag_df <- fit_df %>%
+## Extract diagnostics from each set of fits
+fullPT_diags <- fullPT_fits %>%
   mutate(ess = purrr::map(fit, ~ summary(.)$summary[, "n_eff"]),
          times = purrr::map(fit, get_elapsed_time)) %>%
-  transmute(model_name = model_name,# param_levels,
+  transmute(model_name = model_name,
             adapt_delta = adapt_delta,
             div_total = map_dbl(fit, get_num_divergent),
+            div = div_total > 0,
             td_total = map_dbl(fit, get_num_max_treedepth),
             ## na.rm to get rid of fixed (Pmed[1]) pars with NaN ESS
-            ## exp_ess = map_dbl(ess, mean, na.rm = TRUE),
             min_ess = map_dbl(ess, min, na.rm = TRUE),
-            min_ess_par = map_chr(ess,
-                                  function(p) attr(p, "names")[which.min(p)]),
-            ## max_ess = map_dbl(ess, max, na.rm = TRUE),
-            eltime = map_dbl(times, pluck, 2))
+            eltime = map_dbl(times, pluck, 2),
+            ## Calculate the number of effectively independent samples per
+            ## second; our primary measure of efficiency
+            ess_rate = min_ess / eltime)
+fixedPT_diags <- fixedPT_fits %>%
+  mutate(ess = purrr::map(fit, ~ summary(.)$summary[, "n_eff"]),
+         times = purrr::map(fit, get_elapsed_time)) %>%
+  transmute(model_name = model_name,
+            adapt_delta = adapt_delta,
+            div_total = map_dbl(fit, get_num_divergent),
+            div = div_total > 0,
+            td_total = map_dbl(fit, get_num_max_treedepth),
+            ## na.rm to get rid of fixed (Pmed[1]) pars with NaN ESS
+            min_ess = map_dbl(ess, min, na.rm = TRUE),
+            eltime = map_dbl(times, pluck, 2),
+            ## Calculate the number of effectively independent samples per
+            ## second; our primary measure of efficiency
+            ess_rate = min_ess / eltime)
+Schaefer_diags <- Schaefer_fits %>%
+  mutate(ess = purrr::map(fit, ~ summary(.)$summary[, "n_eff"]),
+         times = purrr::map(fit, get_elapsed_time)) %>%
+  transmute(model_name = model_name,
+            adapt_delta = adapt_delta,
+            div_total = map_dbl(fit, get_num_divergent),
+            div = div_total > 0,
+            td_total = map_dbl(fit, get_num_max_treedepth),
+            ## na.rm to get rid of fixed (Pmed[1]) pars with NaN ESS
+            min_ess = map_dbl(ess, min, na.rm = TRUE),
+            eltime = map_dbl(times, pluck, 2),
+            ## Calculate the number of effectively independent samples per
+            ## second; our primary measure of efficiency
+            ess_rate = min_ess / eltime)
 
-##-Figure X: performance and diagnostics----------------------------------------
-y_log10_scale <- scales::comma(accuracy = 0.1)
+## Generate efficiency plots with divergence diagnostics added
+source("42_figX_effplots.R")
 
-diag_df %>%
-  mutate(div = div_total > 0,
-         div_alpha = ifelse(div_total > 0, 0.5, 1),
-         ## Use NAs for model/adapt_delta combinations that have divergence
-         ## warnings in order to change color for these.
-         div_fill = factor(ifelse(div, NA, model_name),
-                           levels = c(param_levels, NA)),
-         model_name = factor(model_name,
-                             levels = c(param_levels, NA)),
-         ess_rate = min_ess / eltime) %>%
-  ggplot(aes(x = adapt_delta,
-             y = ess_rate,
-             color = model_name,
-             group = model_name,
-             ## alpha = div_alpha
-             )) +
-  geom_line(size = 1) +
-  ## geom_point(size = 6) +
-  geom_point(size = 6, shape = 19) +
-  geom_point(aes(alpha = as.numeric(div)), size = 5, color = "white",
-             show.legend = FALSE) +
-  geom_point(aes(color = div_fill), size = 4, shape = 19) +
-  scale_color_manual(name = "Parameterization",
-                     values = param_colors,
-                     na.value = "#ffffff",
-                     drop = FALSE) +
-  xlab("Target acceptance rate") +
-  scale_y_log10(name = "Effectively independent samples per second",
-                ## labels = scales::comma_format(accuracy = 0.1),
-                ## expand = c(0, 0, 0, 0.1),
-                ## breaks = c(0.1, 1, 10, 100, 1000)) +
-                breaks = 10^(-1:3),
-                labels = 10^(-1:3)) +
-  theme_jkb(base_size = 16)
-
-##-Table 2: sampler diagnostics-------------------------------------------------
-## Generate a table for comparing diagnostics between default settings and
-## adjusted settings.
-## default_diag <- diag_df %>%
+## ##-Table 2: sampler diagnostics-------------------------------------------------
+## ## Generate a table for comparing diagnostics between default settings and
+## ## adjusted settings.
+## ## default_diag <- diag_df %>%
 ##   filter(!adj) %>%
 ##   select(model_name,
 ##          `Exc Treedepth` = td_total,
@@ -104,35 +114,35 @@ diag_df %>%
 ## knitr::kable(pdiag)
 ## write.csv(pdiag, file = "figs/table2_sampdiags.csv")
 
-##-Table 3: effective sample sizes----------------------------------------------
-ess_df <- diag_df %>%
-  select(model_name, adj, min_ess) %>%
-  spread(adj, min_ess) %>%
-  rename(ess_def = `FALSE`,
-         ess_adj = `TRUE`)
-## knitr::kable(ess_df, digits = 0)
+## ##-Table 3: effective sample sizes----------------------------------------------
+## ess_df <- diag_df %>%
+##   select(model_name, adj, min_ess) %>%
+##   spread(adj, min_ess) %>%
+##   rename(ess_def = `FALSE`,
+##          ess_adj = `TRUE`)
+## ## knitr::kable(ess_df, digits = 0)
 
-## Generate table of timing measures (ESS, ESS per time)
-time_df <- fit_df %>%
-  mutate(model_name = factor(model_name, param_levels)) %>%
-  left_join(diag_df, by = c("model_name", "adj")) %>%
-  mutate(times = purrr::map(fit, get_elapsed_time)) %>%
-  transmute(model_name = model_name,
-            adj = adj,
-            warmup = map_dbl(times, ~ sum(.[, "warmup"])),
-            sample = map_dbl(times, ~ sum(.[, "sample"])),
-            min_ess_rate = min_ess / sample,
-            exp_ess_rate = exp_ess / sample)
+## ## Generate table of timing measures (ESS, ESS per time)
+## time_df <- fit_df %>%
+##   mutate(model_name = factor(model_name, param_levels)) %>%
+##   left_join(diag_df, by = c("model_name", "adj")) %>%
+##   mutate(times = purrr::map(fit, get_elapsed_time)) %>%
+##   transmute(model_name = model_name,
+##             adj = adj,
+##             warmup = map_dbl(times, ~ sum(.[, "warmup"])),
+##             sample = map_dbl(times, ~ sum(.[, "sample"])),
+##             min_ess_rate = min_ess / sample,
+##             exp_ess_rate = exp_ess / sample)
 
-tbl3_df <- time_df %>%
-  select(model_name, adj, min_ess_rate) %>%
-  spread(adj, min_ess_rate) %>%
-  rename(rate_def = `FALSE`,
-         rate_adj = `TRUE`) %>%
-  full_join(ess_df, by = "model_name") %>%
-  select(model_name, ess_def, ess_adj, rate_def, rate_adj)
+## tbl3_df <- time_df %>%
+##   select(model_name, adj, min_ess_rate) %>%
+##   spread(adj, min_ess_rate) %>%
+##   rename(rate_def = `FALSE`,
+##          rate_adj = `TRUE`) %>%
+##   full_join(ess_df, by = "model_name") %>%
+##   select(model_name, ess_def, ess_adj, rate_def, rate_adj)
 
-write.csv(tbl3_df, file = "figs/table3_efficiency.csv")
+## write.csv(tbl3_df, file = "figs/table3_efficiency.csv")
 
 ##-Table NOT USED: diagnostic changes with adjustments
 ## Not sure if this will be helpful. May consider a plot where all counts are
@@ -165,28 +175,28 @@ write.csv(tbl3_df, file = "figs/table3_efficiency.csv")
 ##-Figure 2: Plot of ESS rates with default and adjusted sampler settings------
 ## Mostly looks good. Need to figure out how to adjust margins to balance
 ## negative space more effectively.
-time_df %>%
-  ggplot(aes(x = adj, y = min_ess_rate,
-             color = model_name, group = model_name)) +
-  geom_path(size = 2) + geom_point(size = 3) +
-  scale_y_log10(minor_breaks = c(seq(0.0, 1, 0.1),
-                                 seq(1, 10, 1),
-                                 seq(10, 100, 10))) +
-  scale_x_discrete(labels = c("Default", "Adjusted")) +
-  scale_color_manual(values = param_colors) +
-  geom_text(aes(label = model_name),
-            data = filter(time_df, adj),
-            hjust = "left", nudge_x = 0.03,
-            color = "black", family = "Montserrat", size = 3) +
-  labs(# title = "MCMC sampler efficiency",
-       x = "Sampler tuning parameters",
-       y = "ESS Rate",
-       color = "Model parameterization") +
-  guides(color = FALSE)+
-  theme_jkb(base_size = 16) +
-  theme(panel.grid.major.y = element_line(color = rgb(0, 0, 0, 0.15)),
-        panel.grid.minor.y = element_line(color = rgb(0, 0, 0, 0.05)))
-ggsave("figs/sampler_efficiency.png", width = 6, height = 4)
+## time_df %>%
+##   ggplot(aes(x = adj, y = min_ess_rate,
+##              color = model_name, group = model_name)) +
+##   geom_path(size = 2) + geom_point(size = 3) +
+##   scale_y_log10(minor_breaks = c(seq(0.0, 1, 0.1),
+##                                  seq(1, 10, 1),
+##                                  seq(10, 100, 10))) +
+##   scale_x_discrete(labels = c("Default", "Adjusted")) +
+##   scale_color_manual(values = param_colors) +
+##   geom_text(aes(label = model_name),
+##             data = filter(time_df, adj),
+##             hjust = "left", nudge_x = 0.03,
+##             color = "black", family = "Montserrat", size = 3) +
+##   labs(# title = "MCMC sampler efficiency",
+##        x = "Sampler tuning parameters",
+##        y = "ESS Rate",
+##        color = "Model parameterization") +
+##   guides(color = FALSE)+
+##   theme_jkb(base_size = 16) +
+##   theme(panel.grid.major.y = element_line(color = rgb(0, 0, 0, 0.15)),
+##         panel.grid.minor.y = element_line(color = rgb(0, 0, 0, 0.05)))
+## ggsave("figs/sampler_efficiency.png", width = 6, height = 4)
 
 ## default_time <- time_df %>%
 ##   filter(!adj) %>%
@@ -256,144 +266,144 @@ ggsave("figs/sampler_efficiency.png", width = 6, height = 4)
 ##   theme(legend.position = c(0.9, 0.75))
 ## ggsave("figs/msy_post_dens.png", width = 6, height = 4)
 
-##-Figure 2: Parameterization biomass time series-------------------------------
-varyear <- paste0("Biomass[", 1:24, "]")
-names(varyear) <- 1967:1990
-biopost_summ <- fit_df %>%
-  filter(adj) %>%
-  transmute(model_name = factor(model_name, param_levels),
-            B = purrr::map(fit, as.data.frame, pars = "Biomass")) %>%
-  unnest() %>% unnest() %>%
-  rename(!!varyear) %>%
-  gather("year", "biomass", -model_name) %>%
-  mutate(year = as.numeric(year)) %>%
-  group_by(model_name, year) %>%
-  summarize(p10 = quantile(biomass, 0.1),
-            p25 = quantile(biomass, 0.25),
-            p50 = quantile(biomass, 0.5),
-            p75 = quantile(biomass, 0.75),
-            p90 = quantile(biomass, 0.9))
+## ##-Figure 2: Parameterization biomass time series-------------------------------
+## varyear <- paste0("Biomass[", 1:24, "]")
+## names(varyear) <- 1967:1990
+## biopost_summ <- fit_df %>%
+##   filter(adj) %>%
+##   transmute(model_name = factor(model_name, param_levels),
+##             B = purrr::map(fit, as.data.frame, pars = "Biomass")) %>%
+##   unnest() %>% unnest() %>%
+##   rename(!!varyear) %>%
+##   gather("year", "biomass", -model_name) %>%
+##   mutate(year = as.numeric(year)) %>%
+##   group_by(model_name, year) %>%
+##   summarize(p10 = quantile(biomass, 0.1),
+##             p25 = quantile(biomass, 0.25),
+##             p50 = quantile(biomass, 0.5),
+##             p75 = quantile(biomass, 0.75),
+##             p90 = quantile(biomass, 0.9))
 
-bp_dodge <- position_dodge(width = 0.9)
-biopost_plot <- biopost_summ %>%
-  ggplot(aes(x = year, y = p50,
-             color = model_name, group = model_name)) +
-  ## geom_vline(xintercept = 1989.5, linetype = "dashed",
-  ##            size = 0.5, color = rgb(0, 0, 0, 0.15)) +
-  geom_linerange(aes(ymin = p10, ymax = p90),
-               position = bp_dodge, size = 0.5) +
-  geom_linerange(aes(ymin = p25, ymax = p75),
-                 position = bp_dodge, size = 0.75) +
-  geom_point(position = bp_dodge,
-             size = 2.5, shape = "-", color = "black") +
-  ## annotate(geom = "text", x = 1989.6, y = 10, hjust = 0,
-  ##          label = "Projected",
-  ##          family = "Arial", size = 2, color = rgb(0, 0, 0, 0.15)) +
-  scale_color_manual(values = param_colors) +
-  labs(x = "Year", y = "Biomass (Gg)", color = "Parameterization") +
-  coord_cartesian(ylim = c(0, 400),
-                  xlim = c(1966.25, 1990.75),
-                  expand = FALSE) +
-  theme_jkb(base_size = 11) +
-  theme(legend.position = c(0.9, 0.75))
-ggsave("figs/fig2_biopost.png", biopost_plot, width = 6, height = 4)
-ggsave("figs/fig2_biopost.tiff", biopost_plot, width = 6, height = 4)
-ggsave("figs/fig2_biopost.pdf", biopost_plot, device = cairo_pdf,
-       width = 6, height = 4)
+## bp_dodge <- position_dodge(width = 0.9)
+## biopost_plot <- biopost_summ %>%
+##   ggplot(aes(x = year, y = p50,
+##              color = model_name, group = model_name)) +
+##   ## geom_vline(xintercept = 1989.5, linetype = "dashed",
+##   ##            size = 0.5, color = rgb(0, 0, 0, 0.15)) +
+##   geom_linerange(aes(ymin = p10, ymax = p90),
+##                position = bp_dodge, size = 0.5) +
+##   geom_linerange(aes(ymin = p25, ymax = p75),
+##                  position = bp_dodge, size = 0.75) +
+##   geom_point(position = bp_dodge,
+##              size = 2.5, shape = "-", color = "black") +
+##   ## annotate(geom = "text", x = 1989.6, y = 10, hjust = 0,
+##   ##          label = "Projected",
+##   ##          family = "Arial", size = 2, color = rgb(0, 0, 0, 0.15)) +
+##   scale_color_manual(values = param_colors) +
+##   labs(x = "Year", y = "Biomass (Gg)", color = "Parameterization") +
+##   coord_cartesian(ylim = c(0, 400),
+##                   xlim = c(1966.25, 1990.75),
+##                   expand = FALSE) +
+##   theme_jkb(base_size = 11) +
+##   theme(legend.position = c(0.9, 0.75))
+## ggsave("figs/fig2_biopost.png", biopost_plot, width = 6, height = 4)
+## ggsave("figs/fig2_biopost.tiff", biopost_plot, width = 6, height = 4)
+## ggsave("figs/fig2_biopost.pdf", biopost_plot, device = cairo_pdf,
+##        width = 6, height = 4)
 
 
-##-Figure 3: Parameterization management posteriors-----------------------------
-msy_summ <- fit_df %>%
-  filter(adj) %>%
-  transmute(model_name = factor(model_name, levels = rev(param_levels)),
-            MSY = map(fit, rstan::extract, pars = "MSY")) %>%
-  unnest() %>% unnest() %>%
-  group_by(model_name) %>%
-  summarize(p025 = quantile(MSY, 0.025),
-            p10 = quantile(MSY, 0.1),
-            p25 = quantile(MSY, 0.25),
-            p50 = quantile(MSY, 0.5),
-            p75 = quantile(MSY, 0.75),
-            p90 = quantile(MSY, 0.9),
-            p975 = quantile(MSY, 0.975))
-fmsy_summ <- fit_df %>%
-  filter(adj) %>%
-  transmute(model_name = factor(model_name, levels = rev(param_levels)),
-            FMSY = map(fit, rstan::extract, pars = "FMSY")) %>%
-  unnest() %>% unnest() %>%
-  group_by(model_name) %>%
-  summarize(p025 = quantile(FMSY, 0.025),
-            p10 = quantile(FMSY, 0.1),
-            p25 = quantile(FMSY, 0.25),
-            p50 = quantile(FMSY, 0.5),
-            p75 = quantile(FMSY, 0.75),
-            p90 = quantile(FMSY, 0.9),
-            p975 = quantile(FMSY, 0.975))
-Pfinal_summ <- fit_df %>%
-  filter(adj) %>%
-  transmute(model_name = factor(model_name, levels = rev(param_levels)),
-            `Biomass 1990` = map(fit, rstan::extract, pars = "P_final")) %>%
-  unnest() %>% unnest() %>%
-  group_by(model_name) %>%
-  summarize(p025 = quantile(`Biomass 1990`, 0.025),
-            p10 = quantile(`Biomass 1990`, 0.1),
-            p25 = quantile(`Biomass 1990`, 0.25),
-            p50 = quantile(`Biomass 1990`, 0.5),
-            p75 = quantile(`Biomass 1990`, 0.75),
-            p90 = quantile(`Biomass 1990`, 0.9),
-            p975 = quantile(`Biomass 1990`, 0.975))
+## ##-Figure 3: Parameterization management posteriors-----------------------------
+## msy_summ <- fit_df %>%
+##   filter(adj) %>%
+##   transmute(model_name = factor(model_name, levels = rev(param_levels)),
+##             MSY = map(fit, rstan::extract, pars = "MSY")) %>%
+##   unnest() %>% unnest() %>%
+##   group_by(model_name) %>%
+##   summarize(p025 = quantile(MSY, 0.025),
+##             p10 = quantile(MSY, 0.1),
+##             p25 = quantile(MSY, 0.25),
+##             p50 = quantile(MSY, 0.5),
+##             p75 = quantile(MSY, 0.75),
+##             p90 = quantile(MSY, 0.9),
+##             p975 = quantile(MSY, 0.975))
+## fmsy_summ <- fit_df %>%
+##   filter(adj) %>%
+##   transmute(model_name = factor(model_name, levels = rev(param_levels)),
+##             FMSY = map(fit, rstan::extract, pars = "FMSY")) %>%
+##   unnest() %>% unnest() %>%
+##   group_by(model_name) %>%
+##   summarize(p025 = quantile(FMSY, 0.025),
+##             p10 = quantile(FMSY, 0.1),
+##             p25 = quantile(FMSY, 0.25),
+##             p50 = quantile(FMSY, 0.5),
+##             p75 = quantile(FMSY, 0.75),
+##             p90 = quantile(FMSY, 0.9),
+##             p975 = quantile(FMSY, 0.975))
+## Pfinal_summ <- fit_df %>%
+##   filter(adj) %>%
+##   transmute(model_name = factor(model_name, levels = rev(param_levels)),
+##             `Biomass 1990` = map(fit, rstan::extract, pars = "P_final")) %>%
+##   unnest() %>% unnest() %>%
+##   group_by(model_name) %>%
+##   summarize(p025 = quantile(`Biomass 1990`, 0.025),
+##             p10 = quantile(`Biomass 1990`, 0.1),
+##             p25 = quantile(`Biomass 1990`, 0.25),
+##             p50 = quantile(`Biomass 1990`, 0.5),
+##             p75 = quantile(`Biomass 1990`, 0.75),
+##             p90 = quantile(`Biomass 1990`, 0.9),
+##             p975 = quantile(`Biomass 1990`, 0.975))
 
-##-Figure 3: Quantiles for comparison between parameterizations-----------------
-msy_quant <- msy_summ %>%
-  ggplot(aes(y = model_name, yend = model_name,
-             color = model_name, group = model_name)) +
-  geom_segment(aes(x = p025, xend = p975), size = 0.75) +
-  geom_segment(aes(x = p10, xend = p90), size = 1.125) +
-  geom_segment(aes(x = p25, xend = p75), size = 1.5) +
-  geom_point(aes(x = p50), size = 2, shape = 3) +
-  scale_x_continuous(minor_breaks = seq(0, 100, 2.5)) +
-  scale_color_manual(values = param_colors) +
-  labs(x = "MSY (Gg)") +
-  theme_jkb(base_size = 9) +
-  theme(axis.title.y = element_blank(),
-        panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
-        panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
-  guides(color = FALSE)
-fmsy_quant <- fmsy_summ %>%
-  ggplot(aes(y = model_name, yend = model_name,
-             color = model_name, group = model_name)) +
-  geom_segment(aes(x = p025, xend = p975), size = 0.75) +
-  geom_segment(aes(x = p10, xend = p90), size = 1.125) +
-  geom_segment(aes(x = p25, xend = p75), size = 1.5) +
-  geom_point(aes(x = p50), size = 2, shape = 3) +
-  scale_x_continuous(minor_breaks = seq(0, 0.4, 0.025)) +
-  scale_color_manual(values = param_colors) +
-  labs(x = expression(F["MSY"])) +
-  theme_jkb(base_size = 9) +
-  theme(axis.title.y = element_blank(),
-        panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
-        panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
-  guides(color = FALSE)
-Pfinal_quant <- Pfinal_summ %>%
-  ggplot(aes(y = model_name, yend = model_name,
-             color = model_name, group = model_name)) +
-  geom_segment(aes(x = p025, xend = p975), size = 0.75) +
-  geom_segment(aes(x = p10, xend = p90), size = 1.125) +
-  geom_segment(aes(x = p25, xend = p75), size = 1.5) +
-  geom_point(aes(x = p50), size = 2, shape = 3) +
-  scale_x_continuous(minor_breaks = seq(0, 1, 0.05)) +
-  scale_color_manual(values = param_colors) +
-  labs(x = "Depletion in 1990") +
-  theme_jkb(base_size = 9) +
-  theme(axis.title.y = element_blank(),
-        panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
-        panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
-  guides(color = FALSE)
-mgt_fig <- grid.arrange(msy_quant, fmsy_quant, Pfinal_quant, nrow = 3) #,
-                        # top = "Posterior quantiles of management quantities")
-ggsave("figs/fig3_mgt_quant.tiff", mgt_fig, width = 6, height = 6)
-ggsave("figs/fig3_mgt_quant.pdf", mgt_fig, device = cairo_pdf,
-       width = 6, height = 6)
+## ##-Figure 3: Quantiles for comparison between parameterizations-----------------
+## msy_quant <- msy_summ %>%
+##   ggplot(aes(y = model_name, yend = model_name,
+##              color = model_name, group = model_name)) +
+##   geom_segment(aes(x = p025, xend = p975), size = 0.75) +
+##   geom_segment(aes(x = p10, xend = p90), size = 1.125) +
+##   geom_segment(aes(x = p25, xend = p75), size = 1.5) +
+##   geom_point(aes(x = p50), size = 2, shape = 3) +
+##   scale_x_continuous(minor_breaks = seq(0, 100, 2.5)) +
+##   scale_color_manual(values = param_colors) +
+##   labs(x = "MSY (Gg)") +
+##   theme_jkb(base_size = 9) +
+##   theme(axis.title.y = element_blank(),
+##         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
+##         panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
+##   guides(color = FALSE)
+## fmsy_quant <- fmsy_summ %>%
+##   ggplot(aes(y = model_name, yend = model_name,
+##              color = model_name, group = model_name)) +
+##   geom_segment(aes(x = p025, xend = p975), size = 0.75) +
+##   geom_segment(aes(x = p10, xend = p90), size = 1.125) +
+##   geom_segment(aes(x = p25, xend = p75), size = 1.5) +
+##   geom_point(aes(x = p50), size = 2, shape = 3) +
+##   scale_x_continuous(minor_breaks = seq(0, 0.4, 0.025)) +
+##   scale_color_manual(values = param_colors) +
+##   labs(x = expression(F["MSY"])) +
+##   theme_jkb(base_size = 9) +
+##   theme(axis.title.y = element_blank(),
+##         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
+##         panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
+##   guides(color = FALSE)
+## Pfinal_quant <- Pfinal_summ %>%
+##   ggplot(aes(y = model_name, yend = model_name,
+##              color = model_name, group = model_name)) +
+##   geom_segment(aes(x = p025, xend = p975), size = 0.75) +
+##   geom_segment(aes(x = p10, xend = p90), size = 1.125) +
+##   geom_segment(aes(x = p25, xend = p75), size = 1.5) +
+##   geom_point(aes(x = p50), size = 2, shape = 3) +
+##   scale_x_continuous(minor_breaks = seq(0, 1, 0.05)) +
+##   scale_color_manual(values = param_colors) +
+##   labs(x = "Depletion in 1990") +
+##   theme_jkb(base_size = 9) +
+##   theme(axis.title.y = element_blank(),
+##         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
+##         panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
+##   guides(color = FALSE)
+## mgt_fig <- grid.arrange(msy_quant, fmsy_quant, Pfinal_quant, nrow = 3) #,
+##                         # top = "Posterior quantiles of management quantities")
+## ggsave("figs/fig3_mgt_quant.tiff", mgt_fig, width = 6, height = 6)
+## ggsave("figs/fig3_mgt_quant.pdf", mgt_fig, device = cairo_pdf,
+##        width = 6, height = 6)
 
 
 ## Consider the `ggridges` version
@@ -409,292 +419,292 @@ ggsave("figs/fig3_mgt_quant.pdf", mgt_fig, device = cairo_pdf,
 ##   guides(fill = FALSE)
 ## ggsave("figs/msy_post_ridges.png", width = 12, height = 10)
 
-##==============================================================================
-##-Varying Catch SD-------------------------------------------------------------
-csd_datetime <- "2018-12-12 06:18:58"
-load(paste0("results/", csd_datetime, "_csd.Rdata"))
+## ##==============================================================================
+## ##-Varying Catch SD-------------------------------------------------------------
+## csd_datetime <- "2018-12-12 06:18:58"
+## load(paste0("results/", csd_datetime, "_csd.Rdata"))
 
-## Diagnostics
-diag_csd <- csd_df %>%
-  mutate(ess = map(fit, ~ summary(.)$summary[, "n_eff"])) %>%
-  transmute(catch_sd = catch_sd,
-            td_total = map_dbl(fit, get_num_max_treedepth),
-            div_total = map_dbl(fit, get_num_divergent),
-            ## na.rm to get rid of fixed (Pmed[1]) pars with NaN ESS
-            exp_ess = map_dbl(ess, mean, na.rm = TRUE),
-            min_ess = map_dbl(ess, min, na.rm = TRUE),
-            min_ess_par = map_chr(ess,
-                                  function(p) attr(p, "names")[which.min(p)]),
-            max_ess = map_dbl(ess, max, na.rm = TRUE))
+## ## Diagnostics
+## diag_csd <- csd_df %>%
+##   mutate(ess = map(fit, ~ summary(.)$summary[, "n_eff"])) %>%
+##   transmute(catch_sd = catch_sd,
+##             td_total = map_dbl(fit, get_num_max_treedepth),
+##             div_total = map_dbl(fit, get_num_divergent),
+##             ## na.rm to get rid of fixed (Pmed[1]) pars with NaN ESS
+##             exp_ess = map_dbl(ess, mean, na.rm = TRUE),
+##             min_ess = map_dbl(ess, min, na.rm = TRUE),
+##             min_ess_par = map_chr(ess,
+##                                   function(p) attr(p, "names")[which.min(p)]),
+##             max_ess = map_dbl(ess, max, na.rm = TRUE))
 
-## Potential plots for these diagnostics:
-## - Diagnostic counts vs catch_sd
-## - Sampling time vs catch_sd
-## - ESS rate vs catch_sd
+## ## Potential plots for these diagnostics:
+## ## - Diagnostic counts vs catch_sd
+## ## - Sampling time vs catch_sd
+## ## - ESS rate vs catch_sd
 
-##-Table X: Diagnostics by catch_sd---------------------------------------------
-## Edited manually for sigfigs etc!
-knitr::kable(diag_csd)
-write.csv(diag_csd, file = "figs/table4_diagcsd.csv")
+## ##-Table X: Diagnostics by catch_sd---------------------------------------------
+## ## Edited manually for sigfigs etc!
+## knitr::kable(diag_csd)
+## write.csv(diag_csd, file = "figs/table4_diagcsd.csv")
 
-## Fit timing
-time_csd <- csd_df %>%
-  left_join(diag_csd, by = "catch_sd") %>%
-  mutate(times = map(fit, get_elapsed_time)) %>%
-  transmute(catch_sd = catch_sd,
-            warmup = map_dbl(times, ~ sum(.[, "warmup"])),
-            sample = map_dbl(times, ~ sum(.[, "sample"])),
-            min_ess_rate = min_ess / sample,
-            exp_ess_rate = exp_ess / sample)
+## ## Fit timing
+## time_csd <- csd_df %>%
+##   left_join(diag_csd, by = "catch_sd") %>%
+##   mutate(times = map(fit, get_elapsed_time)) %>%
+##   transmute(catch_sd = catch_sd,
+##             warmup = map_dbl(times, ~ sum(.[, "warmup"])),
+##             sample = map_dbl(times, ~ sum(.[, "sample"])),
+##             min_ess_rate = min_ess / sample,
+##             exp_ess_rate = exp_ess / sample)
 
-##-Table X: Timings by catch_sd-------------------------------------------------
-time_csd2 <- time_csd %>%
-  # filter(catch_sd < 4) %>%
-  select(`Catch error` = catch_sd,
-         `Min ESS Rate` = min_ess_rate)
-knitr::kable(time_csd2, digits = 3)
-write.csv(time_csd, file = "figs/table4a_timecsd.csv")
+## ##-Table X: Timings by catch_sd-------------------------------------------------
+## time_csd2 <- time_csd %>%
+##   # filter(catch_sd < 4) %>%
+##   select(`Catch error` = catch_sd,
+##          `Min ESS Rate` = min_ess_rate)
+## knitr::kable(time_csd2, digits = 3)
+## write.csv(time_csd, file = "figs/table4a_timecsd.csv")
 
 
-## Posterior densities - catches
-c_post <- csd_df %>%
-  filter(catch_sd < 1) %>%
-  transmute(catch_sd = factor(signif(catch_sd, 2), levels = signif(catch_sd, 2)),
-            `C_pred[1]` = map(fit, rstan::extract, pars = "C_pred[1]"),
-            `C_pred[8]` = map(fit, rstan::extract, pars = "C_pred[8]"),
-            `C_pred[16]` = map(fit, rstan::extract, pars = "C_pred[16]"),
-            `C_pred[23]` = map(fit, rstan::extract, pars = "C_pred[23]")) %>%
-  unnest() %>% unnest() %>%
-  gather(c_year, c_est, -catch_sd) %>%
-  mutate(c_year = factor(c_year, levels = c("C_pred[1]", "C_pred[8]",
-                                            "C_pred[16]", "C_pred[23]")))
+## ## Posterior densities - catches
+## c_post <- csd_df %>%
+##   filter(catch_sd < 1) %>%
+##   transmute(catch_sd = factor(signif(catch_sd, 2), levels = signif(catch_sd, 2)),
+##             `C_pred[1]` = map(fit, rstan::extract, pars = "C_pred[1]"),
+##             `C_pred[8]` = map(fit, rstan::extract, pars = "C_pred[8]"),
+##             `C_pred[16]` = map(fit, rstan::extract, pars = "C_pred[16]"),
+##             `C_pred[23]` = map(fit, rstan::extract, pars = "C_pred[23]")) %>%
+##   unnest() %>% unnest() %>%
+##   gather(c_year, c_est, -catch_sd) %>%
+##   mutate(c_year = factor(c_year, levels = c("C_pred[1]", "C_pred[8]",
+##                                             "C_pred[16]", "C_pred[23]")))
 
-c_orig <- data_frame(c_year = factor(c("C_pred[1]", "C_pred[8]",
-                                       "C_pred[16]", "C_pred[23]"),
-                                     levels = c("C_pred[1]", "C_pred[8]",
-                                                "C_pred[16]", "C_pred[23]")),
-                     c_obs = tuna_data$C[c(1, 8, 16, 23)])
+## c_orig <- data_frame(c_year = factor(c("C_pred[1]", "C_pred[8]",
+##                                        "C_pred[16]", "C_pred[23]"),
+##                                      levels = c("C_pred[1]", "C_pred[8]",
+##                                                 "C_pred[16]", "C_pred[23]")),
+##                      c_obs = tuna_data$C[c(1, 8, 16, 23)])
 
-##-Catch posterior examples------------------------------------------------------
-## Show that catch estimation behaves well with changing catch_sd. Needs a bit
-## more negative space, and better facet titles.
-c_post %>%
-  ggplot(aes(x = c_est, color = catch_sd, fill = catch_sd)) +
-  geom_density() +
-  facet_wrap(~ c_year, scales = "free") +
-  geom_vline(aes(xintercept = c_obs), data = c_orig,
-             alpha = 0.5, size = 1, linetype = "dashed") +
-  ## scale_color_simpsons() + scale_fill_simpsons() +
-  scale_color_viridis(discrete = TRUE, option = "E") +
-  scale_fill_viridis(discrete = TRUE, option = "E") +
-  labs(# title = "Example catch posteriors",
-       x = "Catch biomass", y = "Density",
-       color = "Catch SD", fill = "Catch SD") +
-  theme_jkb(base_size = 9)
-ggsave("figs/catch_post.png", width = 12, height = 10)
-
-## Posterior densities - Biomass
-b_post <- csd_df %>%
-  filter(catch_sd < 4) %>%
-  transmute(catch_sd = factor(signif(catch_sd, 2), levels = signif(catch_sd, 2)),
-            `Biomass[1]` = map(fit, rstan::extract, pars = "Biomass[1]"),
-            `Biomass[8]` = map(fit, rstan::extract, pars = "Biomass[8]"),
-            `Biomass[16]` = map(fit, rstan::extract, pars = "Biomass[16]"),
-            `Biomass[23]` = map(fit, rstan::extract, pars = "Biomass[23]")) %>%
-  unnest() %>% unnest() %>%
-  gather(b_year, b_post, -catch_sd) %>%
-  mutate(b_year = factor(b_year, levels = c("Biomass[1]", "Biomass[8]",
-                                            "Biomass[16]", "Biomass[23]")))
-
-##-Biomass posterior examples---------------------------------------------------
-## Show that biomass posteriors don't change with catch_sd. Might be a better
-## way to show this, e.g. below.
-b_post %>%
-  ggplot(aes(x = b_post, color = catch_sd, fill = catch_sd)) +
-  geom_density(alpha = 0.25, size = 1) +
-  facet_wrap(~ b_year, scales = "free") +
-  scale_color_startrek() + scale_fill_startrek() +
-  labs(# title = "Example biomass posteriors",
-       x = "Biomass",
-       y = "Density",
-       fill = "Catch SD", color = "Catch SD") +
-  theme_jkb(base_size = 9)
-ggsave("figs/biomass_post_dens.png", width = 12, height = 10)
-
-##-Figure 4: Posterior biomass series
-b_series <- csd_df %>%
-  filter(catch_sd < 4) %>%
-  transmute(catch_sd = catch_sd,
-            bseries = map(fit, as.data.frame, pars = "Biomass")) %>%
-  unnest() %>% unnest() %>%
-  rename(!!varyear) %>%
-  gather(year, biomass, -catch_sd) %>%
-  mutate(year = as.numeric(year)) %>%
-  group_by(catch_sd, year) %>%
-  summarize(p10 = quantile(biomass, 0.1),
-            p25 = quantile(biomass, 0.25),
-            p50 = median(biomass),
-            p75 = quantile(biomass, 0.75),
-            p90 = quantile(biomass, 0.9)) %>%
-  ungroup()
-
-b_series %>%
-  mutate(catch_sd = round(catch_sd, 3),
-         catch_sd = factor(catch_sd)) %>%
-  ggplot(aes(x = year, y = p50,
-             color = catch_sd, fill = catch_sd)) +
-  ## geom_vline(xintercept = 1989.5, linetype = "dashed",
-  ##            size = 0.5, color = rgb(0, 0, 0, 0.15)) +
-  geom_linerange(aes(ymin = p10, ymax = p90), size = 0.5,
-                 position = bp_dodge) +
-  geom_linerange(aes(ymin = p25, ymax = p75), size = 0.75,
-                 position = bp_dodge) +
-  geom_point(position = bp_dodge,
-             shape = "-", size = 2.5, color = "black") +
-  scale_color_viridis(discrete = TRUE, option = "E") +
-  scale_fill_viridis(discrete = TRUE, option = "E") +
-  ## annotate(geom = "text", x = 1989.6, y = 0, hjust = 0,
-  ##          label = "Projected",
-  ##          family = "Montserrat", size = 2, color = rgb(0, 0, 0, 0.15)) +
-  labs(#title = "Biomass posteriors with varying catch errors",
-       x = "Year", y = "Biomass (Gg)",
-       color = "Catch error\n (std. dev.)", fill = "Catch error\n (std. dev.)") +
-  coord_cartesian(ylim = c(0, 400),
-                  xlim = c(1966.25, 1990.75),
-                  expand = FALSE) +
-  theme_jkb(base_size = 9) +
-  theme(legend.position = c(0.925, 0.75))
-ggsave("figs/fig4_csd_biomass.tiff", width = 6, height = 4)
-ggsave("figs/fig4_csd_biomass.pdf", device = cairo_pdf,
-       width = 6, height = 4)
-
-## Posterior densities - MSY
-## msy_post <- csd_df %>%
-##   filter(catch_sd < 4) %>%
-##   transmute(catch_sd = factor(catch_sd, levels = catch_sd),
-##             MSY = map(fit, rstan::extract, pars = "MSY")) %>%
-##   unnest() %>% unnest()
-
-## msy_post %>%
-##   ggplot(aes(x = MSY, color = catch_sd, fill = catch_sd)) +
-##   geom_density(alpha = 0.2, size = 2) +
+## ##-Catch posterior examples------------------------------------------------------
+## ## Show that catch estimation behaves well with changing catch_sd. Needs a bit
+## ## more negative space, and better facet titles.
+## c_post %>%
+##   ggplot(aes(x = c_est, color = catch_sd, fill = catch_sd)) +
+##   geom_density() +
+##   facet_wrap(~ c_year, scales = "free") +
+##   geom_vline(aes(xintercept = c_obs), data = c_orig,
+##              alpha = 0.5, size = 1, linetype = "dashed") +
+##   ## scale_color_simpsons() + scale_fill_simpsons() +
 ##   scale_color_viridis(discrete = TRUE, option = "E") +
 ##   scale_fill_viridis(discrete = TRUE, option = "E") +
-##   labs(title = "Posterior distribution of MSY",
-##        x = "MSY", y = "Density",
-##        color = "Catch error\n (std. dev.)",
-##        fill = "Catch error\n (std. dev.)") +
-##   theme_jkb(base_size = 9) +
-##   theme(legend.position = c(0.925, 0.8)) +
-## ggsave("figs/msy_post.png", width = 12, height = 10)
-
-## ## Posterior densities - FMSY
-## fmsy_post <- csd_df %>%
-##   filter(catch_sd < 4) %>%
-##   transmute(catch_sd = factor(catch_sd, levels = catch_sd),
-##             FMSY = map(fit, rstan::extract, pars = "FMSY")) %>%
-##   unnest() %>% unnest()
-
-## fmsy_post %>%
-##   ggplot(aes(x = FMSY, color = catch_sd, fill = catch_sd)) +
-##   geom_density(alpha = 0.2, size = 2) +
+##   labs(# title = "Example catch posteriors",
+##        x = "Catch biomass", y = "Density",
+##        color = "Catch SD", fill = "Catch SD") +
 ##   theme_jkb(base_size = 9)
-## ggsave("figs/fmsy_post.png", width = 12, height = 10)
+## ggsave("figs/catch_post.png", width = 12, height = 10)
 
-##-Figure 5: Parameterization management posteriors-----------------------------
-msy_summ <- csd_df %>%
-  filter(catch_sd < 4) %>%
-  transmute(catch_sd = round(catch_sd, 3),
-            catch_sd = factor(catch_sd),
-            bseries = map(fit, as.data.frame, pars = "MSY")) %>%
-  unnest() %>% unnest() %>%
-  group_by(catch_sd) %>%
-  summarize(p025 = quantile(MSY, 0.025),
-            p10 = quantile(MSY, 0.1),
-            p25 = quantile(MSY, 0.25),
-            p50 = quantile(MSY, 0.5),
-            p75 = quantile(MSY, 0.75),
-            p90 = quantile(MSY, 0.9),
-            p975 = quantile(MSY, 0.975))
-fmsy_summ <- csd_df %>%
-  filter(catch_sd < 4) %>%
-  transmute(catch_sd = round(catch_sd, 3),
-            catch_sd = factor(catch_sd),
-            bseries = map(fit, as.data.frame, pars = "FMSY")) %>%
-  unnest() %>% unnest() %>%
-  group_by(catch_sd) %>%
-  summarize(p025 = quantile(FMSY, 0.025),
-            p10 = quantile(FMSY, 0.1),
-            p25 = quantile(FMSY, 0.25),
-            p50 = quantile(FMSY, 0.5),
-            p75 = quantile(FMSY, 0.75),
-            p90 = quantile(FMSY, 0.9),
-            p975 = quantile(FMSY, 0.975))
-Pfinal_summ <- csd_df %>%
-  filter(catch_sd < 4) %>%
-  transmute(catch_sd = round(catch_sd, 3),
-            catch_sd = factor(catch_sd),
-            bseries = map(fit, as.data.frame, pars = "P_final")) %>%
-  unnest() %>% unnest() %>%
-  group_by(catch_sd) %>%
-  summarize(p025 = quantile(P_final, 0.025),
-            p10 = quantile(P_final, 0.1),
-            p25 = quantile(P_final, 0.25),
-            p50 = quantile(P_final, 0.5),
-            p75 = quantile(P_final, 0.75),
-            p90 = quantile(P_final, 0.9),
-            p975 = quantile(P_final, 0.975))
+## ## Posterior densities - Biomass
+## b_post <- csd_df %>%
+##   filter(catch_sd < 4) %>%
+##   transmute(catch_sd = factor(signif(catch_sd, 2), levels = signif(catch_sd, 2)),
+##             `Biomass[1]` = map(fit, rstan::extract, pars = "Biomass[1]"),
+##             `Biomass[8]` = map(fit, rstan::extract, pars = "Biomass[8]"),
+##             `Biomass[16]` = map(fit, rstan::extract, pars = "Biomass[16]"),
+##             `Biomass[23]` = map(fit, rstan::extract, pars = "Biomass[23]")) %>%
+##   unnest() %>% unnest() %>%
+##   gather(b_year, b_post, -catch_sd) %>%
+##   mutate(b_year = factor(b_year, levels = c("Biomass[1]", "Biomass[8]",
+##                                             "Biomass[16]", "Biomass[23]")))
 
-##-Figure X: Quantiles for comparison between parameterizations-----------------
-msy_quant <- msy_summ %>%
-  ggplot(aes(y = catch_sd, yend = catch_sd,
-             color = catch_sd, group = catch_sd)) +
-  geom_segment(aes(x = p025, xend = p975), size = 0.75) +
-  geom_segment(aes(x = p10, xend = p90), size = 1.125) +
-  geom_segment(aes(x = p25, xend = p75), size = 1.5) +
-  geom_point(aes(x = p50), size = 2, shape = 3) +
-  scale_x_continuous(minor_breaks = seq(0, 100, 1)) +
-  scale_color_viridis(discrete = TRUE, option = "E") +
-  labs(x = "MSY (Gg)") +
-  theme_jkb(base_size = 9) +
-  theme(axis.title.y = element_blank(),
-        panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
-        panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
-  guides(color = FALSE)
-fmsy_quant <- fmsy_summ %>%
-  ggplot(aes(y = catch_sd, yend = catch_sd,
-             color = catch_sd, group = catch_sd)) +
-  geom_segment(aes(x = p025, xend = p975), size = 0.75) +
-  geom_segment(aes(x = p10, xend = p90), size = 1.125) +
-  geom_segment(aes(x = p25, xend = p75), size = 1.5) +
-  geom_point(aes(x = p50), size = 2, shape = 3) +
-  scale_x_continuous(minor_breaks = seq(0, 0.4, 0.025)) +
-  scale_color_viridis(discrete = TRUE, option = "E") +
-  labs(x = expression(F["MSY"])) +
-  theme_jkb(base_size = 9) +
-  theme(axis.title.y = element_blank(),
-        panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
-        panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
-  guides(color = FALSE)
-Pfinal_quant <- Pfinal_summ %>%
-  ggplot(aes(y = catch_sd, yend = catch_sd,
-             color = catch_sd, group = catch_sd)) +
-  geom_segment(aes(x = p025, xend = p975), size = 0.75) +
-  geom_segment(aes(x = p10, xend = p90), size = 1.125) +
-  geom_segment(aes(x = p25, xend = p75), size = 1.5) +
-  geom_point(aes(x = p50), size = 2, shape = 3) +
-  scale_x_continuous(minor_breaks = seq(0, 1, 0.05)) +
-  scale_color_viridis(discrete = TRUE, option = "E") +
-  labs(x = "Depletion in 1990") +
-  theme_jkb(base_size = 9) +
-  theme(axis.title.y = element_blank(),
-        panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
-        panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
-  guides(color = FALSE)
-mgt_fig <- grid.arrange(msy_quant, fmsy_quant, Pfinal_quant, nrow = 3,
-                        # top = "Posterior quantiles of management quantities",
-                        left = "Catch error (std. dev.)")
-ggsave("figs/fig5_csd_mgt.tiff", mgt_fig, width = 6, height = 6)
-ggsave("figs/fig5_csd_mgt.pdf", device = cairo_pdf,
-       mgt_fig, width = 6, height = 6)
+## ##-Biomass posterior examples---------------------------------------------------
+## ## Show that biomass posteriors don't change with catch_sd. Might be a better
+## ## way to show this, e.g. below.
+## b_post %>%
+##   ggplot(aes(x = b_post, color = catch_sd, fill = catch_sd)) +
+##   geom_density(alpha = 0.25, size = 1) +
+##   facet_wrap(~ b_year, scales = "free") +
+##   scale_color_startrek() + scale_fill_startrek() +
+##   labs(# title = "Example biomass posteriors",
+##        x = "Biomass",
+##        y = "Density",
+##        fill = "Catch SD", color = "Catch SD") +
+##   theme_jkb(base_size = 9)
+## ggsave("figs/biomass_post_dens.png", width = 12, height = 10)
+
+## ##-Figure 4: Posterior biomass series
+## b_series <- csd_df %>%
+##   filter(catch_sd < 4) %>%
+##   transmute(catch_sd = catch_sd,
+##             bseries = map(fit, as.data.frame, pars = "Biomass")) %>%
+##   unnest() %>% unnest() %>%
+##   rename(!!varyear) %>%
+##   gather(year, biomass, -catch_sd) %>%
+##   mutate(year = as.numeric(year)) %>%
+##   group_by(catch_sd, year) %>%
+##   summarize(p10 = quantile(biomass, 0.1),
+##             p25 = quantile(biomass, 0.25),
+##             p50 = median(biomass),
+##             p75 = quantile(biomass, 0.75),
+##             p90 = quantile(biomass, 0.9)) %>%
+##   ungroup()
+
+## b_series %>%
+##   mutate(catch_sd = round(catch_sd, 3),
+##          catch_sd = factor(catch_sd)) %>%
+##   ggplot(aes(x = year, y = p50,
+##              color = catch_sd, fill = catch_sd)) +
+##   ## geom_vline(xintercept = 1989.5, linetype = "dashed",
+##   ##            size = 0.5, color = rgb(0, 0, 0, 0.15)) +
+##   geom_linerange(aes(ymin = p10, ymax = p90), size = 0.5,
+##                  position = bp_dodge) +
+##   geom_linerange(aes(ymin = p25, ymax = p75), size = 0.75,
+##                  position = bp_dodge) +
+##   geom_point(position = bp_dodge,
+##              shape = "-", size = 2.5, color = "black") +
+##   scale_color_viridis(discrete = TRUE, option = "E") +
+##   scale_fill_viridis(discrete = TRUE, option = "E") +
+##   ## annotate(geom = "text", x = 1989.6, y = 0, hjust = 0,
+##   ##          label = "Projected",
+##   ##          family = "Montserrat", size = 2, color = rgb(0, 0, 0, 0.15)) +
+##   labs(#title = "Biomass posteriors with varying catch errors",
+##        x = "Year", y = "Biomass (Gg)",
+##        color = "Catch error\n (std. dev.)", fill = "Catch error\n (std. dev.)") +
+##   coord_cartesian(ylim = c(0, 400),
+##                   xlim = c(1966.25, 1990.75),
+##                   expand = FALSE) +
+##   theme_jkb(base_size = 9) +
+##   theme(legend.position = c(0.925, 0.75))
+## ggsave("figs/fig4_csd_biomass.tiff", width = 6, height = 4)
+## ggsave("figs/fig4_csd_biomass.pdf", device = cairo_pdf,
+##        width = 6, height = 4)
+
+## ## Posterior densities - MSY
+## ## msy_post <- csd_df %>%
+## ##   filter(catch_sd < 4) %>%
+## ##   transmute(catch_sd = factor(catch_sd, levels = catch_sd),
+## ##             MSY = map(fit, rstan::extract, pars = "MSY")) %>%
+## ##   unnest() %>% unnest()
+
+## ## msy_post %>%
+## ##   ggplot(aes(x = MSY, color = catch_sd, fill = catch_sd)) +
+## ##   geom_density(alpha = 0.2, size = 2) +
+## ##   scale_color_viridis(discrete = TRUE, option = "E") +
+## ##   scale_fill_viridis(discrete = TRUE, option = "E") +
+## ##   labs(title = "Posterior distribution of MSY",
+## ##        x = "MSY", y = "Density",
+## ##        color = "Catch error\n (std. dev.)",
+## ##        fill = "Catch error\n (std. dev.)") +
+## ##   theme_jkb(base_size = 9) +
+## ##   theme(legend.position = c(0.925, 0.8)) +
+## ## ggsave("figs/msy_post.png", width = 12, height = 10)
+
+## ## ## Posterior densities - FMSY
+## ## fmsy_post <- csd_df %>%
+## ##   filter(catch_sd < 4) %>%
+## ##   transmute(catch_sd = factor(catch_sd, levels = catch_sd),
+## ##             FMSY = map(fit, rstan::extract, pars = "FMSY")) %>%
+## ##   unnest() %>% unnest()
+
+## ## fmsy_post %>%
+## ##   ggplot(aes(x = FMSY, color = catch_sd, fill = catch_sd)) +
+## ##   geom_density(alpha = 0.2, size = 2) +
+## ##   theme_jkb(base_size = 9)
+## ## ggsave("figs/fmsy_post.png", width = 12, height = 10)
+
+## ##-Figure 5: Parameterization management posteriors-----------------------------
+## msy_summ <- csd_df %>%
+##   filter(catch_sd < 4) %>%
+##   transmute(catch_sd = round(catch_sd, 3),
+##             catch_sd = factor(catch_sd),
+##             bseries = map(fit, as.data.frame, pars = "MSY")) %>%
+##   unnest() %>% unnest() %>%
+##   group_by(catch_sd) %>%
+##   summarize(p025 = quantile(MSY, 0.025),
+##             p10 = quantile(MSY, 0.1),
+##             p25 = quantile(MSY, 0.25),
+##             p50 = quantile(MSY, 0.5),
+##             p75 = quantile(MSY, 0.75),
+##             p90 = quantile(MSY, 0.9),
+##             p975 = quantile(MSY, 0.975))
+## fmsy_summ <- csd_df %>%
+##   filter(catch_sd < 4) %>%
+##   transmute(catch_sd = round(catch_sd, 3),
+##             catch_sd = factor(catch_sd),
+##             bseries = map(fit, as.data.frame, pars = "FMSY")) %>%
+##   unnest() %>% unnest() %>%
+##   group_by(catch_sd) %>%
+##   summarize(p025 = quantile(FMSY, 0.025),
+##             p10 = quantile(FMSY, 0.1),
+##             p25 = quantile(FMSY, 0.25),
+##             p50 = quantile(FMSY, 0.5),
+##             p75 = quantile(FMSY, 0.75),
+##             p90 = quantile(FMSY, 0.9),
+##             p975 = quantile(FMSY, 0.975))
+## Pfinal_summ <- csd_df %>%
+##   filter(catch_sd < 4) %>%
+##   transmute(catch_sd = round(catch_sd, 3),
+##             catch_sd = factor(catch_sd),
+##             bseries = map(fit, as.data.frame, pars = "P_final")) %>%
+##   unnest() %>% unnest() %>%
+##   group_by(catch_sd) %>%
+##   summarize(p025 = quantile(P_final, 0.025),
+##             p10 = quantile(P_final, 0.1),
+##             p25 = quantile(P_final, 0.25),
+##             p50 = quantile(P_final, 0.5),
+##             p75 = quantile(P_final, 0.75),
+##             p90 = quantile(P_final, 0.9),
+##             p975 = quantile(P_final, 0.975))
+
+## ##-Figure X: Quantiles for comparison between parameterizations-----------------
+## msy_quant <- msy_summ %>%
+##   ggplot(aes(y = catch_sd, yend = catch_sd,
+##              color = catch_sd, group = catch_sd)) +
+##   geom_segment(aes(x = p025, xend = p975), size = 0.75) +
+##   geom_segment(aes(x = p10, xend = p90), size = 1.125) +
+##   geom_segment(aes(x = p25, xend = p75), size = 1.5) +
+##   geom_point(aes(x = p50), size = 2, shape = 3) +
+##   scale_x_continuous(minor_breaks = seq(0, 100, 1)) +
+##   scale_color_viridis(discrete = TRUE, option = "E") +
+##   labs(x = "MSY (Gg)") +
+##   theme_jkb(base_size = 9) +
+##   theme(axis.title.y = element_blank(),
+##         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
+##         panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
+##   guides(color = FALSE)
+## fmsy_quant <- fmsy_summ %>%
+##   ggplot(aes(y = catch_sd, yend = catch_sd,
+##              color = catch_sd, group = catch_sd)) +
+##   geom_segment(aes(x = p025, xend = p975), size = 0.75) +
+##   geom_segment(aes(x = p10, xend = p90), size = 1.125) +
+##   geom_segment(aes(x = p25, xend = p75), size = 1.5) +
+##   geom_point(aes(x = p50), size = 2, shape = 3) +
+##   scale_x_continuous(minor_breaks = seq(0, 0.4, 0.025)) +
+##   scale_color_viridis(discrete = TRUE, option = "E") +
+##   labs(x = expression(F["MSY"])) +
+##   theme_jkb(base_size = 9) +
+##   theme(axis.title.y = element_blank(),
+##         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
+##         panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
+##   guides(color = FALSE)
+## Pfinal_quant <- Pfinal_summ %>%
+##   ggplot(aes(y = catch_sd, yend = catch_sd,
+##              color = catch_sd, group = catch_sd)) +
+##   geom_segment(aes(x = p025, xend = p975), size = 0.75) +
+##   geom_segment(aes(x = p10, xend = p90), size = 1.125) +
+##   geom_segment(aes(x = p25, xend = p75), size = 1.5) +
+##   geom_point(aes(x = p50), size = 2, shape = 3) +
+##   scale_x_continuous(minor_breaks = seq(0, 1, 0.05)) +
+##   scale_color_viridis(discrete = TRUE, option = "E") +
+##   labs(x = "Depletion in 1990") +
+##   theme_jkb(base_size = 9) +
+##   theme(axis.title.y = element_blank(),
+##         panel.grid.major.x = element_line(color = rgb(0, 0, 0, 0.15)),
+##         panel.grid.minor.x = element_line(color = rgb(0, 0, 0, 0.05))) +
+##   guides(color = FALSE)
+## mgt_fig <- grid.arrange(msy_quant, fmsy_quant, Pfinal_quant, nrow = 3,
+##                         # top = "Posterior quantiles of management quantities",
+##                         left = "Catch error (std. dev.)")
+## ggsave("figs/fig5_csd_mgt.tiff", mgt_fig, width = 6, height = 6)
+## ggsave("figs/fig5_csd_mgt.pdf", device = cairo_pdf,
+##        mgt_fig, width = 6, height = 6)
 

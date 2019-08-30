@@ -32,13 +32,15 @@ ggsave("figs/fig1_catch_cpue.pdf", cc_plot, device = cairo_pdf,
 
 ##-Model fits-------------------------------------------------------------------
 
-fit_datetime <- "2019-03-07 14:17:09"
-load(paste0("results/", fit_datetime, "_fits.Rdata"))
+### Preliminaries
+load("results/adapt_delta_fits.Rdata")
 
-## Define colors for parameterizations
-param_levels <- c("Centered", "MM",
-                  "Constrained P", "Noncentered",
-                  "Marginal q", "Explicit F",
+## Define colors for parameterizations; color-blind friendly pallette from
+## <https://www.nature.com/articles/nmeth.1618>
+param_levels <- c("Centered",
+                  "Noncentered",
+                  "Marginal q",
+                  "Explicit F",
                   "Explicit F marg q")
 wong_colors <- c(rgb(0, 0, 0, max = 255),       # Black
                  rgb(230, 159, 0, max = 255),   # Orange
@@ -48,52 +50,90 @@ wong_colors <- c(rgb(0, 0, 0, max = 255),       # Black
                  rgb(0, 114, 178, max = 255),   # Blue
                  rgb(213, 94, 0, max = 255),    # Vermillion
                  rgb(204, 121, 167, max = 255)) # Reddish purple
-param_colors <- wong_colors[2:8]
-## param_colors <- pal_futurama()(7)
+param_colors <- wong_colors[2:6]
+## Name these so that they will be picked up in plots below.
 names(param_colors) <- param_levels
 
-## Rename Truncated to MM (Meyer & Millar)
-fit_df <- fit_df %>%
-  mutate(model_name = recode(model_name,
-                             Truncated = "MM",
-                             default = model_name))
-
+## Extract posteriors from `stanfit` objects. Need to use package namespaces due
+## to conflicts.
 post_df <- fit_df %>%
   transmute(model_name = model_name,
+            adapt_delta = adapt_delta,
             post = purrr::map(fit, rstan::extract, inc_warmup = FALSE))
 
+## Extract diagnostics from each fit
 diag_df <- fit_df %>%
-  mutate(ess = purrr::map(fit, ~ summary(.)$summary[, "n_eff"])) %>%
-  transmute(model_name = factor(model_name, param_levels),
-            adj = adj,
-            td_total = map_dbl(fit, get_num_max_treedepth),
+  mutate(ess = purrr::map(fit, ~ summary(.)$summary[, "n_eff"]),
+         times = purrr::map(fit, get_elapsed_time)) %>%
+  transmute(model_name = model_name,# param_levels,
+            adapt_delta = adapt_delta,
             div_total = map_dbl(fit, get_num_divergent),
+            td_total = map_dbl(fit, get_num_max_treedepth),
             ## na.rm to get rid of fixed (Pmed[1]) pars with NaN ESS
-            exp_ess = map_dbl(ess, mean, na.rm = TRUE),
+            ## exp_ess = map_dbl(ess, mean, na.rm = TRUE),
             min_ess = map_dbl(ess, min, na.rm = TRUE),
             min_ess_par = map_chr(ess,
                                   function(p) attr(p, "names")[which.min(p)]),
-            max_ess = map_dbl(ess, max, na.rm = TRUE))
+            ## max_ess = map_dbl(ess, max, na.rm = TRUE),
+            eltime = map_dbl(times, pluck, 2))
+
+##-Figure X: performance and diagnostics----------------------------------------
+y_log10_scale <- scales::comma(accuracy = 0.1)
+
+diag_df %>%
+  mutate(div = div_total > 0,
+         div_alpha = ifelse(div_total > 0, 0.5, 1),
+         ## Use NAs for model/adapt_delta combinations that have divergence
+         ## warnings in order to change color for these.
+         div_fill = factor(ifelse(div, NA, model_name),
+                           levels = c(param_levels, NA)),
+         model_name = factor(model_name,
+                             levels = c(param_levels, NA)),
+         ess_rate = min_ess / eltime) %>%
+  ggplot(aes(x = adapt_delta,
+             y = ess_rate,
+             color = model_name,
+             group = model_name,
+             ## alpha = div_alpha
+             )) +
+  geom_line(size = 1) +
+  ## geom_point(size = 6) +
+  geom_point(size = 6, shape = 19) +
+  geom_point(aes(alpha = as.numeric(div)), size = 5, color = "white",
+             show.legend = FALSE) +
+  geom_point(aes(color = div_fill), size = 4, shape = 19) +
+  scale_color_manual(name = "Parameterization",
+                     values = param_colors,
+                     na.value = "#ffffff",
+                     drop = FALSE) +
+  xlab("Target acceptance rate") +
+  scale_y_log10(name = "Effectively independent samples per second",
+                ## labels = scales::comma_format(accuracy = 0.1),
+                ## expand = c(0, 0, 0, 0.1),
+                ## breaks = c(0.1, 1, 10, 100, 1000)) +
+                breaks = 10^(-1:3),
+                labels = 10^(-1:3)) +
+  theme_jkb(base_size = 16)
 
 ##-Table 2: sampler diagnostics-------------------------------------------------
 ## Generate a table for comparing diagnostics between default settings and
 ## adjusted settings.
-default_diag <- diag_df %>%
-  filter(!adj) %>%
-  select(model_name,
-         `Exc Treedepth` = td_total,
-         `Divergences` = div_total)
-adj_diag <- diag_df %>%
-  filter(adj) %>%
-  select(model_name = model_name,
-         `Exc Treedepth Adj` = td_total,
-         `Divergences Adj` = div_total)
-pdiag <- left_join(default_diag, adj_diag, by = "model_name") %>%
-  select(` ` = model_name,
-         `Divergences`, `Divergences Adj`,
-         `Exc Treedepth`, `Exc Treedepth Adj`)
-knitr::kable(pdiag)
-write.csv(pdiag, file = "figs/table2_sampdiags.csv")
+## default_diag <- diag_df %>%
+##   filter(!adj) %>%
+##   select(model_name,
+##          `Exc Treedepth` = td_total,
+##          `Divergences` = div_total)
+## adj_diag <- diag_df %>%
+##   filter(adj) %>%
+##   select(model_name = model_name,
+##          `Exc Treedepth Adj` = td_total,
+##          `Divergences Adj` = div_total)
+## pdiag <- left_join(default_diag, adj_diag, by = "model_name") %>%
+##   select(` ` = model_name,
+##          `Divergences`, `Divergences Adj`,
+##          `Exc Treedepth`, `Exc Treedepth Adj`)
+## knitr::kable(pdiag)
+## write.csv(pdiag, file = "figs/table2_sampdiags.csv")
 
 ##-Table 3: effective sample sizes----------------------------------------------
 ess_df <- diag_df %>%
@@ -688,3 +728,4 @@ mgt_fig <- grid.arrange(msy_quant, fmsy_quant, Pfinal_quant, nrow = 3,
 ggsave("figs/fig5_csd_mgt.tiff", mgt_fig, width = 6, height = 6)
 ggsave("figs/fig5_csd_mgt.pdf", device = cairo_pdf,
        mgt_fig, width = 6, height = 6)
+

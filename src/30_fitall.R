@@ -40,6 +40,10 @@ model_df <- tribble(
   "Explicit F"       ,       mod_exF,   init_expF,
   "Explicit F marg q", mod_exF_margq,   init_expF)
 
+chain_spec <- list(n_iter = 2000,
+                   n_warm = 1000,
+                   n_chain = 2L)
+
 ## Sample from each of these models
 fit_df <- cross_df(list(model_name = model_df$model_name,
                         adapt_delta = adapt_delta_values)) %>%
@@ -47,7 +51,7 @@ fit_df <- cross_df(list(model_name = model_df$model_name,
   #########################################################################
   ## FIXME Only use next line when debugging! Doesn't fit all combinations!
   #########################################################################
-  filter(adapt_delta == 0.80) %>%
+  ## filter(adapt_delta == 0.80) %>%
   mutate(fit = pmap(., ~ sampling(object = ..3,
                                   data = tuna_data,
                                   chains = chain_spec$n_chain,
@@ -57,5 +61,5 @@ fit_df <- cross_df(list(model_name = model_df$model_name,
                                   control = list(adapt_delta = ..2))))
 
 save(fit_df, chain_spec,
-     file = paste0("results/", Sys.time(), "adapt_delta_fits.Rdata"))
+     file = "results/adapt_delta_fits.Rdata")
 

@@ -18,29 +18,10 @@ source("src/10_data.R")
 ## Plot and save Figure 1: CPUE and catch series plots
 source("src/41_fig1_data.R")
 
-##-Model fits-------------------------------------------------------------------
+##-Extract relevant information from model fits----------------------------------
 
 ### Preliminaries
 load("results/adapt_delta_fits.Rdata")
-
-## Define colors for parameterizations; color-blind friendly pallette from
-## <https://www.nature.com/articles/nmeth.1618>
-param_levels <- c("Centered",
-                  "Noncentered",
-                  "Marginal q",
-                  "Explicit F",
-                  "Explicit F marg q")
-wong_colors <- c(rgb(0, 0, 0, max = 255),       # Black
-                 rgb(230, 159, 0, max = 255),   # Orange
-                 rgb(86, 180, 233, max = 255),  # Sky blue
-                 rgb(0, 158, 115, max = 255),   # Bluish green
-                 rgb(240, 228, 66, max = 255),  # Yellow
-                 rgb(0, 114, 178, max = 255),   # Blue
-                 rgb(213, 94, 0, max = 255),    # Vermillion
-                 rgb(204, 121, 167, max = 255)) # Reddish purple
-param_colors <- wong_colors[2:6]
-## Name these so that they will be picked up in plots below.
-names(param_colors) <- param_levels
 
 ## Extract posteriors from `stanfit` objects. Need to use package namespaces due
 ## to conflicts.

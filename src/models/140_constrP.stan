@@ -18,35 +18,25 @@ functions {
     return P_upper;
   }
 
-  // Define a single step forward in time using Pella-Tomlinson dynamics. This
+  // Define a single step forward in time using Schaefer dynamics. This
   // uses the parameterization presented in Winker et al. 2018.
-  real pella_tomlinson(real P0, real r, real K, real m, real C) {
-    real m1;
-    real surplus_prod;
-    real P1;
-
-    m1 = m - 1;
-    surplus_prod = r / m1 * P0 * (1 - P0 ^ m1);
-    P1 = P0 + surplus_prod - C / K;
-
-    return P1;
+  real schaefer(real P0, real r, real K, real C) {
+    return P0 + r * P0 * (1 - P0) - C / K;
   }
 
   // Calculate BMSY
-  real pt_bmsy(real K, real m) {
-    real PMSY;
-    PMSY = m ^ (-1 / (m - 1));
-    return K * PMSY;
+  real sch_bmsy(real K) {
+    return K / 2;
   }
 
   // Calculate FMSY
-  real pt_fmsy(real r, real m) {
-    return r / m;
+  real sch_fmsy(real r) {
+    return r / 2;
   }
 
   // Use above to calculate MSY
-  real pt_msy(real fmsy, real bmsy) {
-    return fmsy * bmsy;
+  real sch_msy(real r, real K) {
+    return r * K / 4;
   }
 }
 
@@ -60,7 +50,6 @@ parameters {
   real<lower=0> r; // Population growth
   real<lower=0> K; // Carrying capacity
   real<lower=0> q;                 // Catchability
-  real<lower=1,upper=10> m;        // FIXME Pella-Tomlinson shape
   real<lower=0> sigma2;            // Process variability
   real<lower=0> tau2;              // Observation variability
   vector<lower=0,upper=1>[T] P_raw; // Predicted depletion (state variable).
@@ -90,7 +79,7 @@ transformed parameters {
   // Initial depletion
   P_med[1] = 1;
   for (t in 2:T) {
-    P_med[t] = pella_tomlinson(P[t - 1], r, K, m, C[t - 1]);
+    P_med[t] = schaefer(P[t - 1], r, K, C[t - 1]);
   }
 }
 
@@ -103,8 +92,6 @@ model {
   target += -log(q);
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
-  // FIXME Prior on Pella-Tomlinson shape parameter
-  m ~ uniform(1, 10);
 
   for (t in 1:T) {
     // Add the log-Jacobian correction for the change of variables from P_raw to
@@ -137,13 +124,13 @@ generated quantities {
     Biomass[t] = K * P[t];
   }
   // One-step-ahead projection, including process error
-  P_medfinal = pella_tomlinson(P[T],r, K, m, C[T]);
+  P_medfinal = schaefer(P[T],r, K, C[T]);
   P_final = lognormal_rng(log(P_medfinal), sigma);
   Biomass[T + 1] = K * P_final;
 
   // Management values
-  BMSY = pt_bmsy(K, m);
-  FMSY = pt_fmsy(r, m);
-  MSY  = pt_msy(BMSY, FMSY);
+  BMSY = sch_bmsy(K);
+  FMSY = sch_fmsy(r);
+  MSY  = sch_msy(r, K);
 }
 

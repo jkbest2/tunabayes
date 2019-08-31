@@ -73,22 +73,3 @@ ggplot(ppc_df, aes(x = pp_obs, y = factor(year))) +
 
 ggsave("notes/Manuscript/PriorPred_Catch.pdf")
 
-## Prior predictive checks for Pella-Tomlinson shape parameter by looking at
-## depletion at MSY
-pmsy <- function(p) (p + 1) ^ (-1 / p)
-
-## Simple rejection sampler to prevent m < 1
-rlb <- function (rf, ..., lb = 1) {
-  samp <- rf(...)
-  while (samp < lb) samp <- rf(...)
-  return(samp)
-}
-
-n_samp <- 10000L
-
-sig <- 1.1
-m_draws <- rlnorm(n_samp, log(0.19) - sig ^ 2 / 2, sig)
-## gamma_shape <- 1e5
-## m_draws <- rgamma(n_samp, gamma_shape, gamma_shape / 0.19)
-pmsy_draws <- pmsy(m_draws)
-hist(pmsy_draws, breaks = 50)

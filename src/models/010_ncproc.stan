@@ -35,13 +35,15 @@ data {
   int<lower=0> T;                  // Number of years
   vector[T] C;                     // Observed catch
   vector[T] I;                     // CPUE index
+  vector[2] m_prior;               // meanlog and sdlog of prior on PT shape
+                                   // parameter
 }
 
 parameters {
   real<lower=0> r;                 // Population growth
   real<lower=0> K;                 // Carrying capacity
   real<lower=0> q;                 // Catchability
-  real<lower=1,upper=10> m;        // FIXME Pella-Tomlinson shape
+  real<lower=0> m;                 // Pella-Tomlinson shape
   real<lower=0> sigma2;            // Process variance
   real<lower=0> tau2;              // Observation variance
   vector[T] u;                     // Process log-deviations
@@ -76,8 +78,8 @@ model {
   target += -log(q);
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
-  // FIXME Prior on Pella-Tomlinson shape parameter
-  m ~ uniform(1, 10);
+  // Prior on Pella-Tomlinson shape parameter
+  m ~ lognormal(m_prior[1], m_prior[2]);
 
   // Process error likelihood
   u ~ normal(0, 1);

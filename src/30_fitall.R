@@ -20,17 +20,13 @@ source("src/10_data.R")
 ## than 0.05, which looks reasonable in prior predictive checks.
 tuna_data$catch_cv_prior_rate <- cv_prior_rate(0.05, 0.9)
 
-## Set the specifications for each chain. 25,000 total iterations with 5,000
-## warmup iterations and 6 chains. Overkill, but better for detecting any sneaky
-## divergent transitions.
-chain_spec <- list(n_iter = 2.5e4,
+## Set the specifications for each chain. 17,500 total iterations with 5,000
+## warmup iterations and 4 chains, so 50,000 post-warmup samples. Probably
+## overkill, but better for detecting any sneaky divergent transitions.
+chain_spec <- list(n_iter = 1.75e4,
                    n_warm = 5e3,
-                   n_chain = 6L)
+                   n_chain = 4L)
 
 ## Choose a range of `adapt_delta` values (default is 0.8)
 adapt_delta_values <- c(seq(0.7, 0.95, 0.05), 0.975, 0.99, 0.999)
-
-## source("src/31_fitfullPT.R")
-## source("src/32_fitfixedPT.R")
-## source("src/33_fitSchaefer.R")
 

@@ -13,6 +13,19 @@ functions {
     return P1;
   }
 
+  // Calculate PMSY. Need this separate from BMSY below because using Beta
+  // distribution to set prior on PMSY.
+  real pt_pmsy(real m) {
+    return m ^ (-1 / (m - 1));
+  }
+
+  // Calculate the derivative of PMSY wrt m. Used for Jacobian correction. Has
+  // singularities at 0 and 1, but well-behaved near those values. Unlikely to
+  // hit them exactly so not branching here.
+  real ddm_pt_pmsy(real m) {
+    return pt_pmsy(m) * (-1 / (m - m^2) - log(m) / (1 - m)^2);
+  }
+
   // Calculate BMSY
   real pt_bmsy(real K, real m) {
     real PMSY;
@@ -35,8 +48,8 @@ data {
   int<lower=0> T;                  // Number of years
   vector[T] C;                     // Observed catch
   vector[T] I;                     // CPUE index
-  vector[2] m_prior;               // meanlog and sdlog of prior on PT shape
-                                   // parameter
+  vector[2] pmsy_prior;            // alpha and beta of Beta prior on Pmsy
+                                   // (implicit prior on PT shape parameter)
 }
 
 parameters {
@@ -49,12 +62,16 @@ parameters {
 }
 
 transformed parameters {
+  real<lower=0,upper=1> P_msy;     // Depletion at MSY
   real<lower=0> sigma;             // Process standard deviation
   real<lower=0> tau;               // Observation standard deviation
   vector[T] P_med;                 // Median depletion; no process error
   vector[T] Z;                     // Per year catchability; follow the notation
                                    // of Walters and Ludwig 1994
   real log_q_hat;                  // Estimate of q
+
+  // Prior is on P_msy, need to calculate it here from m
+  P_msy = pt_pmsy(m);
 
   // Priors from Meyer & Millar 1999 are on the variance (originally precision)
   // parameter, but Stan takes a standard deviation parameter.
@@ -82,8 +99,9 @@ model {
   K ~ lognormal(5.042905, 1 / sqrt(3.7603664));
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
-  // Prior on Pella-Tomlinson shape parameter
-  m ~ lognormal(m_prior[1], m_prior[2]);
+  // Prior on P_msy with Jacobian correction
+  P_msy ~ beta(pmsy_prior[1], pmsy_prior[2]);
+  target += ddm_pt_pmsy(m);
 
   // Process likelihood
   P ~ lognormal(log(P_med), sigma);
@@ -115,7 +133,7 @@ generated quantities {
   Biomass[T + 1] = K * P_final;
 
   // Management values
-  BMSY = pt_bmsy(K, m);
+  BMSY = K * P_msy;
   FMSY = pt_fmsy(r, m);
   MSY  = pt_msy(BMSY, FMSY);
 }

@@ -3,11 +3,9 @@ source("src/03_priorfunctions.R")
 ## Source common data, adapt_delta values, etc.
 source("src/30_fitall.R")
 
-## Calculate the parameters of the PT shape parameter log Normal prior, and add
-## them to the data
-sdlog <- 1
-meanlog <- find_meanlog(sdlog, target_pmsy = 0.4)
-tuna_data$m_prior <- c(meanlog, sdlog)
+## Parameterize a fairly uninformative Beta prior on Pmsy, with expectation 0.4.
+## See src/22_PTshapeprior.R for visualizations etc.
+tuna_data$pmsy_prior <- c(4, 6)
 
 ## In order to avoid needing to recompile the model every run, first compile
 ## each model in global scope.

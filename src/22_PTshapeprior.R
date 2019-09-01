@@ -1,5 +1,36 @@
 source("src/03_priorfunctions.R")
 
+## Try different Beta priors on Pmsy. Easier to interpret. Double check that the
+## density function on m integrates to 1 and has a reasonable expectation.
+alpha <- 4
+beta <- 0.6 / 0.4 * alpha
+## For plotting
+pmsy <- seq(0.01, 0.99, length.out = 513)
+m <- sapply(pmsy, pmsy_to_m)
+dpmsy <- dbeta(pmsy, alpha, beta)
+dm <- dbeta_pmsy(m, alpha, beta)
+par(mfrow = c(1, 2))
+plot(pmsy, dpmsy, type = "l")
+abline(h = 0)
+plot(m, dm, type = "l", xlim = c(0, 10))
+abline(h = 0)
+
+## Check the quantiles of Pmsy for different alpha and beta values. A
+## distribution with more right-skew would be preferred, but the Beta is only a
+## two-parameter distribution and there's not much to do about it. A joint hyper
+## prior on alpha a beta might do it, but that's a lot to explore at this point.
+rpmsy <- rbeta(10000, alpha, beta)
+quantile(rpmsy, c(0.025, 0.05, 0.25, 0.5, 0.75, 0.95, 0.975))
+
+## Make sure that the new distribution integrates to 1 and has finite expectation.
+integrate(function(m) dbeta_pmsy(m, alpha, beta), lower = 0, upper = Inf)
+integrate(function(m) m * dbeta_pmsy(m, alpha, beta), lower = 0, upper = Inf)
+
+
+plot(m, dm, type = "l", xlim = c(0, 10))
+## rb <- rbeta_pmsy()
+hist(rbeta_pmsy(10000, 4, 6), breaks = 100, prob = TRUE, add = TRUE)
+abline(v = 1, lty = 2)
 ## Most stock assessments set m so that Pmsy is at 0.4. We use the m
 ## value associated with this Pmsy as a starting point to explore
 ## potential priors on m, with the goal of choosing a prior with mean
@@ -11,9 +42,9 @@ source("src/03_priorfunctions.R")
 ## of Pmsy.
 sig = 1
 ml <- find_meanlog(sig)
-plot_dpmsy(dlnorm_ptshape, ml, sig)
+plot_dpmsy(dlnorm_m, ml, sig)
 ## Generate random draws to look at the quantiles of the implied prior on Pmsy
-rpmsy <- rlnorm_ptshape(10000, ml, sig)
+rpmsy <- rlnorm_m(10000, ml, sig)
 quantile(rpmsy, c(0.025, 0.1, 0.25, 0.5, 0.75, 0.9, 0.975))
 
 ## Alternatively, consider a gamma prior, again with expected Pmsy fixed
@@ -27,3 +58,11 @@ plot_dpmsy(dgamma_ptshape, gpars$shape, gpars$rate)
 rpmsy <- rgamma_ptshape(100000, gpars$shape, gpars$rate)
 quantile(rpmsy, c(0.025, 0.05, 0.25, 0.5, 0.75, 0.95, 0.975))
 
+## And instead try a Beta prior on Pmsy for a better interpreability
+alpha <- 4
+beta <- 6
+pmsy <- seq(1e-3, 9.999e-1, len = 1025)
+m <- sapply(pmsy, pmsy_to_m)
+dpmsy <- dbeta(pmsy, alpha, beta)
+dm <- sapply(m, dbeta_pmsy, alpha = 4, beta = 6)
+plot(m, dm, type = "l", xlim = c(0, 10))

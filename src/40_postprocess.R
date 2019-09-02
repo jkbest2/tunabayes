@@ -26,7 +26,7 @@ summarize_posteriors <- function(df_fits) {
            adapt_delta = adapt_delta,
            post_means = future_map(post, ~ lapply(., mean)),
            post_qtiles = future_map(post, post_qtiles)) %>%
-    select(-post)
+    select(-model, -fit, -post)
 }
 
 ## Extract diagnostics from fits
@@ -51,6 +51,6 @@ diagnose_fits <- function(df_fits) {
            ess_rate = min_ess / sampling_time,
            ess_tail_rate = min_ess_tail / sampling_time,
            ess_bulk_rate = min_ess_bulk / sampling_time) %>%
-    select(-post, -times)
+    select(-model, -fit, -post, -times)
 }
 

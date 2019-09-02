@@ -24,14 +24,15 @@ functions {
   // hit them exactly so not branching here.
   real log_ddm_pt_pmsy(real m) {
     real log_tmp1;
-    real tmp2;
-    real tmp3;
+    real log_tmp2;
+    real log_tmp3;
 
-    log_tmp1 = (-1 / (m - 1)) * log(m);
-    tmp2 = -1 / (m - m^2);
-    tmp3 = -log(m) / (1 - m)^2;
+    log_tmp1 = (-m / (m - 1)) * log(m);
+    log_tmp2 = log(m * (log(m) - 1) + 1);
+    // Need to square inside the log to keep everything positive
+    log_tmp3 = log((m - 1)^2);
 
-    return log_tmp1 + log(tmp2 + tmp3);
+    return log_tmp1 + log_tmp2 - log_tmp3;
   }
 
   // Calculate BMSY

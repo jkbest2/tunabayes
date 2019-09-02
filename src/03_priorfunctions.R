@@ -20,14 +20,30 @@ m_to_pmsy <- function(m) {
 ## corrections.
 ddm_m_to_pmsy <- function(m) {
   if (!(m == 1 | m <= 0)) {
-    t1 <- m_to_pmsy(m)
-    t2 <- -1 / (m * (1 - m))
-    t3 <- -log(m) / (1 - m)^2
-    return(t1 * (t2 + t3))
+    t1 <- m^(-m / (m - 1))
+    num <- -m + m * log(m) + 1
+    den <- (m - 1)^2
+    return(t1 * num / den)
   } else if (m == 0) {
     return(1)
   } else if (m == 1) {
     return(1 / (2 * exp(1)))
+  } else {
+    stop("m must be non-negative")
+  }
+}
+
+log_ddm_m_to_pmsy <- function(m) {
+  if (!(m == 1 | m <= 0)) {
+    logt1 <- (-m / (m - 1)) * log(m)
+    lognum <- log(-m + m * log(m) + 1)
+    ## Need to square before taking log to keep everyting positive
+    logden <- log((m - 1)^2)
+    return(logt1 + lognum - logden)
+  } else if (m == 0) {
+    return(0)
+  } else if (m == 1) {
+    return(-2)
   } else {
     stop("m must be non-negative")
   }

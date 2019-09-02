@@ -37,6 +37,5 @@ fixedPT_fits <- cross_df(list(model_name = fixedPT_models$model_name,
                                   init = ..4,
                                   control = list(adapt_delta = ..2))))
 
-save(fixedPT_fits, chain_spec,
-     file = "results/fixedPT_fits.Rdata")
+saveRDS(fixedPT_fits, "results/fixedPT_fits.Rds")
 

@@ -1,8 +1,8 @@
 source("src/40_postprocess.R")
 
-load("results/fixedPT_fits.Rdata")
+fixedPT_fits <- readRDS("results/fixedPT_fits.Rds")
 
 fixedPT_summaries <- summarize_posteriors(fixedPT_fits)
 
-saveRDS("results/fixedPT_summaries.rda")
+saveRDS(fixedPT_summaries, "results/fixedPT_summaries.Rds")
 

@@ -1,8 +1,8 @@
 source("src/40_postprocess.R")
 
-load("results/fixedPT_fits.Rdata")
+fixedPT_fits <- readRDS("results/fixedPT_fits.Rds")
 
 fixedPT_diagnostics <- diagnose_fits(fixedPT_fits)
 
-saveRDS(fixedPT_diagnostics, "results/fixedPT_diagnostics.rda")
+saveRDS(fixedPT_diagnostics, "results/fixedPT_diagnostics.Rds")
 

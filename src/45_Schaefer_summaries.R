@@ -1,7 +1,7 @@
 source("src/40_postprocess.R")
 
-load("results/Schaefer_fits.Rdata")
+Schaefer_fits <- readRDS("results/Schaefer_fits.Rds")
 
-Schaefer_summaries <- posterior_summaries(Schaefer_fits)
+Schaefer_summaries <- summarize_posteriors(Schaefer_fits)
 
-saveRDS(Schaefer_summaries, "results/Schaefer_summaries.rds")
+saveRDS(Schaefer_summaries, "results/Schaefer_summaries.Rds")

@@ -1,5 +1,3 @@
-## Source functions for parameterizing the prior on the PT shape parameterizing
-source("src/03_priorfunctions.R")
 ## Source common data, adapt_delta values, etc.
 source("src/30_fitall.R")
 
@@ -39,5 +37,4 @@ fullPT_fits <- cross_df(list(model_name = fullPT_models$model_name,
                                   init = ..4,
                                   control = list(adapt_delta = ..2))))
 
-save(fullPT_fits, chain_spec,
-     file = "results/fullPT_fits.Rdata")
+saveRDS(fullPT_fits, "results/fullPT_fits.Rds")

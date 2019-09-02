@@ -40,6 +40,5 @@ Schaefer_fits <- cross_df(list(model_name = Schaefer_models$model_name,
                                   init = ..4,
                                   control = list(adapt_delta = ..2))))
 
-save(Schaefer_fits, chain_spec,
-     file = "results/Schaefer_fits.Rdata")
+saveRDS(Schaefer_fits, "results/Schaefer_fits.Rds")
 

@@ -68,5 +68,5 @@ PT_colors <- wong_colors[2:6]
 names(PT_colors) <- param_levels[1:5]
 
 Schaefer_colors <- wong_colors[2:7]
-names(PT_colors) <- param_levels
+names(Schaefer_colors) <- param_levels
 

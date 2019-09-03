@@ -20,10 +20,10 @@ source("src/10_data.R")
 ## than 0.05, which looks reasonable in prior predictive checks.
 tuna_data$catch_cv_prior_rate <- cv_prior_rate(0.05, 0.9)
 
-## Set the specifications for each chain. 17,500 total iterations with 5,000
-## warmup iterations and 4 chains, so 50,000 post-warmup samples. Probably
+## Set the specifications for each chain. 30,000 iterations per chain with 5,000
+## warmup iterations and 4 chains, so 100,000 post-warmup samples. Probably
 ## overkill, but better for detecting any sneaky divergent transitions.
-chain_spec <- list(n_iter = 1.75e4,
+chain_spec <- list(n_iter = 30e3,
                    n_warm = 5e3,
                    n_chain = 4L)
 

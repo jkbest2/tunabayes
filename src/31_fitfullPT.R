@@ -3,7 +3,7 @@ source("src/30_fitall.R")
 
 ## Parameterize a fairly uninformative Beta prior on Pmsy, with expectation 0.4.
 ## See src/22_PTshapeprior.R for visualizations etc.
-tuna_data$pmsy_prior <- c(4, 6)
+tuna_data$m_prior <- c(-0.5, 1, 10)
 
 ## In order to avoid needing to recompile the model every run, first compile
 ## each model in global scope.

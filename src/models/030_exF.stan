@@ -26,24 +26,7 @@ functions {
     return (P0 + surplus_prod) * exp(-F);
   }
 
-  // Calculate the log-derivative of PMSY wrt m. Used for Jacobian correction. Has
-  // singularities at 0 and 1, but well-behaved near those values. Unlikely to
-  // hit them exactly so not branching here.
-  real log_ddm_pt_pmsy(real m) {
-    real log_tmp1;
-    real log_tmp2;
-    real log_tmp3;
-
-    log_tmp1 = (-m / (m - 1)) * log(m);
-    log_tmp2 = log(m * (log(m) - 1) + 1);
-    // Need to square inside the log to keep everything positive
-    log_tmp3 = log((m - 1)^2);
-
-    return log_tmp1 + log_tmp2 - log_tmp3;
-  }
-
-  // Calculate PMSY. Need this separate from BMSY below because using Beta
-  // distribution to set prior on PMSY.
+  // Calculate PMSY
   real pt_pmsy(real m) {
     return m ^ (-1 / (m - 1));
   }
@@ -70,8 +53,8 @@ data {
   int<lower=0> T;                  // Number of years
   vector[T] C;                     // Observed catch
   vector[T] I;                     // CPUE index
-  vector[2] pmsy_prior;            // alpha and beta of Beta prior on Pmsy
-                                   // (implicit prior on PT shape parameter)
+  vector[3] m_prior;               // Location, scale, and shape of Skew-Normal
+                                   // prior on log(m)
   real catch_cv_prior_rate;        // Rate parameter on the exponential prior of
                                    // the catch error standard deviation
                                    // parameter
@@ -90,15 +73,11 @@ parameters {
 }
 
 transformed parameters {
-  real<lower=0,upper=1> P_msy;     // Depletion at MSY
   real<lower=0> sigma;             // Process standard deviation param
   real<lower=0> tau;               // Observation standard deviation param
   real<lower=0> xi;                // Standard deviation param of catch obs.
   vector<lower=0>[T] P_med;        // Median depletion; no process error
   vector<lower=0>[T] C_pred;       // Predicted catch, after error
-
-  // Prior is on P_msy, need to calculate it here from m
-  P_msy = pt_pmsy(m);
 
   // Priors from Meyer & Millar 1999 are on the variance (originally precision)
   // parameter, but Stan takes a standard deviation parameter.
@@ -135,9 +114,9 @@ model {
   target += -log(q);
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
-  // Prior on P_msy with Jacobian correction
-  P_msy ~ beta(pmsy_prior[1], pmsy_prior[2]);
-  target += log_ddm_pt_pmsy(m);
+  // Prior on m with Jacobian correction
+  log(m) ~ skew_normal(m_prior[1], m_prior[2], m_prior[3]);
+  target += -log(m);
   // Exponential prior on catch observation coefficient of variation
   catch_cv ~ exponential(catch_cv_prior_rate);
 
@@ -153,6 +132,7 @@ generated quantities {
   vector[T + 1] Biomass;           // Biomass series with one step ahead prediction
   real P_medfinal;                 // One step ahead median depletion
   real P_final;                    // One step ahead depletion
+  real PMSY;                       // Depletion at MSY
   real BMSY;                       // Biomass at MSY
   real FMSY;                       // Fishing mortality to achieve MSY
   real MSY;                        // Maximum sustainable yield
@@ -168,7 +148,8 @@ generated quantities {
   Biomass[T + 1] = K * P_final;
 
   // Management values
-  BMSY = K * P_msy;
+  PMSY = pt_pmsy(m);
+  BMSY = K * PMSY;
   FMSY = pt_fmsy(r, m);
   MSY  = pt_msy(BMSY, FMSY);
 }

@@ -1,5 +1,7 @@
 ## Need the gsl library for Lambert's W function
 library(gsl)
+## Library with function for skew-normal distribution
+library(sn)
 
 ## Prior predictive checks for Pella-Tomlinson shape parameter by looking at
 ## depletion at MSY. Includes branches to eliminate singularity at m = 1 and m =
@@ -83,9 +85,9 @@ ddpmsy_pmsy_to_m <- function(pmsy, log = FALSE) {
 ## Calculate the expected Pmsy by numerical integration. The `df` argument is a
 ## density function that takes arguments `par1` and `par2` (e.g. meanlog and
 ## sdlog or shape and rate).
-exp_pmsy <- function(df, par1, par2) {
+exp_pmsy <- function(df, ...) {
   integrate(function(pmsy)
-    pmsy * df(pmsy, par1, par2),
+    pmsy * df(pmsy, ...),
     lower = 0, upper = 1)$value
 }
 
@@ -174,3 +176,20 @@ rbeta_pmsy <- function(n, alpha, beta) {
   vapply(pmsy, pmsy_to_m, FUN.VALUE = 1.0)
 }
 
+## Use a log-skew-normal prior on m
+dlsn <- function(m, xi, omega, alpha) {
+  1 / m * dsn(log(m), xi, omega, alpha)
+}
+
+dlsn_pmsy <- function(pmsy, xi, omega, alpha) {
+  m <- vapply(pmsy, pmsy_to_m, 1.0)
+  dm <- dlsn(m, xi, omega, alpha)
+  jac <- vapply(pmsy, ddpmsy_pmsy_to_m, 1.0)
+  dm * jac
+}
+
+rlsn_pmsy <- function(n, xi, omega, alpha) {
+  x <- rsn(n, xi, omega, alpha)
+  m <- exp(x)
+  vapply(m, m_to_pmsy, 1.0)
+}

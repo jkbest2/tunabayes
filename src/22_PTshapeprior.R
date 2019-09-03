@@ -4,6 +4,48 @@ source("src/03_priorfunctions.R")
 ## associated with this Pmsy as a starting point to explore potential priors on
 ## m, with the goal of choosing a prior with mean Pmsy of 0.4.
 
+## Log-skew-normal prior on m
+xi <- -0.5       # location
+omega <- 1       # scale
+alpha <- 10      # shape (skew)
+n <- 1000000     # number of random draws
+## Use random draws to validate pdf calculations
+rm <- exp(rsn(n, xi, omega, alpha))
+rpmsy <- vapply(rm, m_to_pmsy, 1.0)
+## Calculate probability density of m
+m <- seq(0.01, 10, len = 2048 + 1)
+dm <- dlsn(m, xi, omega, alpha)
+## Calculate probability density of Pmsy
+pmsy <- vapply(m, m_to_pmsy, 1.0)
+dpmsy <- dlsn_pmsy(pmsy, xi, omega, alpha)
+
+par(mfrow = c(1, 2))
+## Plots histogram and density of (implicit) prior on Pmsy
+hist(rpmsy, breaks = seq(0, 1, 0.01), probability = TRUE,
+     xlim = c(0, 1),
+     ylim = c(0, 1.05 * max(dpmsy)), yaxs = "i")
+lines(pmsy, dpmsy)
+abline(h = 0)
+## Plot histogram and density of prior on m
+hist(rm, breaks = seq(0, ceiling(max(rm)), 0.1), probability = TRUE,
+     xlim = c(0, 10), ylim = c(0, 1.05 * max(dm)),
+     yaxs = "i")
+lines(m, dm)
+abline(h = 0)
+## Calculate summary statistics
+epmsy <- exp_pmsy(dlsn_pmsy, xi = xi, omega = omega, alpha = alpha)
+medpmsy <- median(rpmsy)
+modepmsy <- optimize(function(pmsy) -dlsn_pmsy(pmsy, xi, omega, alpha),
+                     c(0, 1))$minimum
+qtpmsy <- quantile(rpmsy, c(0.0, 0.025, 0.05, 0.1, 0.25, 0.5,
+                            0.75, 0.9, 0.95, 0.975, 1.0))
+
+## Double check that densities integrate to 1
+integrate(function(pmsy) dlsn_pmsy(pmsy, xi, omega, alpha),
+          lower = 1e-5, upper = Inf)
+integrate(function(m) dlsn(m, xi, omega, alpha),
+          lower = 1e-12, upper = Inf)
+
 ## Try different Beta priors on Pmsy. Easier to interpret. Double check that the
 ## density function on m integrates to 1 and has a reasonable expectation.
 alpha <- 4

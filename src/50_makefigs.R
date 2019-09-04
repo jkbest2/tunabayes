@@ -8,6 +8,21 @@ library(viridis)
 ## Source plot specifics
 source("src/02_plotthemes.R")
 
+## Remove unnecessary columns and make long with label for divergences vs
+## treedepth and counts
+reshape_diags <- function(df_diag) {
+  df_diag %>%
+    select(model_name, adapt_delta, div = div_total, td = td_total) %>%
+    gather(key = "diagnostic", value = number, -model_name, -adapt_delta)
+}
+
+dyn_levels = c("P-T, estimated m",
+               "P-T, fixed m",
+               "Schaefer")
+
+## Specify colors to use
+param_colors <- wong_colors[c(2, 3, 4, 6, 7, 8)]
+
 ##-Extract relevant information from model fits----------------------------------
 
 ## Load the fits of the models with Pella-Tomlinson dynamics and estimated shape

@@ -48,6 +48,6 @@ diagnose_fits <- function(df_fits) {
            ess_tail_rate = min_ess_tail / sampling_time,
            ess_bulk_rate = min_ess_bulk / sampling_time,
            model_name = factor(model_name, levels = model_levels)) %>%
-    select(-model, -fit, -post, -times)
+    select(-model, -fit, -post)
 }
 

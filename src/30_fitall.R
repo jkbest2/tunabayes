@@ -29,4 +29,8 @@ chain_spec <- list(n_iter = 30e3,
 
 ## Choose a range of `adapt_delta` values (default is 0.8)
 adapt_delta_values <- c(seq(0.7, 0.95, 0.05), 0.975, 0.99, 0.999)
+## Increase max treedepth for the explicit F parameterizations. 15 is a
+## substantial increase but may still finish in my lifetime. Wonder if this will
+## allow better adaptation and so fewer divergences??
+max_treedepth <- 15L
 

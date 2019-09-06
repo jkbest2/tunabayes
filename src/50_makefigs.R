@@ -20,8 +20,12 @@ dyn_levels = c("P-T, estimated m",
                "P-T, fixed m",
                "Schaefer")
 
+param_levels <- c("Centered", "Noncentered", "Marginal q",
+                  "Explicit F", "Explicit F marg q", "Constrained P")
+
 ## Specify colors to use
 param_colors <- wong_colors[c(2, 3, 4, 6, 7, 8)]
+names(param_colors) <- param_levels
 
 ##-Extract relevant information from model fits----------------------------------
 

@@ -119,6 +119,8 @@ model {
   target += -log(m);
   // Exponential prior on catch observation coefficient of variation
   catch_cv ~ exponential(catch_cv_prior_rate);
+  // Prior on F to give uniform prior on fraction of fishing mortality
+  F ~ exponential(1);
 
   // State likelihoods
   P ~ lognormal(log(P_med), sigma);

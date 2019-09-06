@@ -1,3 +1,5 @@
+source("src/50_makefigs.R")
+
 ## Load summaries of each dynamics
 fullPT_summaries <- readRDS("results/fullPT_summaries.Rds") %>%
   mutate(dyn = factor("P-T, estimated m", levels = dyn_levels),

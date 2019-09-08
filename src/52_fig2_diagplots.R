@@ -20,9 +20,6 @@ all_diagnostics <- bind_rows(fullPT_diagnostics,
   filter(adapt_delta > 0.75) %>%
   select(dyn, model_name, adapt_delta, div_total, div)
 
-## Extract to use for breaks and labels
-ad_vals <- unique(all_diags$adapt_delta)
-
 ## Make the plot
 diag_plot <- all_diagnostics %>%
   ggplot(aes(x = adapt_delta,
@@ -35,8 +32,8 @@ diag_plot <- all_diagnostics %>%
   geom_point(data = filter(all_diagnostics, !div),
              shape = 19, size = 1) +
   geom_hline(yintercept = 0, size = 0.2) +
-  scale_x_continuous(breaks = ad_vals[1:9],
-                     labels = c(ad_vals[1:6], "", "", ad_vals[9]),
+  scale_x_continuous(breaks = ad_vals,
+                     labels = c(ad_vals[1:4], "", "", ad_vals[7]),
                      minor_breaks = NULL) +
   scale_y_continuous(expand = expand_scale(mul = c(0, 0.1))) +
   scale_color_manual(values = param_colors) +

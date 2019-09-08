@@ -43,8 +43,8 @@ effplot <- all_effs %>%
   xlab("Target acceptance rate") +
   guides(shape = FALSE,
          color = guide_legend(title = "", nrow = 1L)) +
-  scale_x_continuous(breaks = ad_vals[1:9],
-                     labels = c(ad_vals[1:6], "", "", ad_vals[9]),
+  scale_x_continuous(breaks = ad_vals,
+                     labels = c(ad_vals[1:4], "", "", ad_vals[7]),
                      minor_breaks = NULL) +
   scale_y_log10(name = "Effectively independent samples per second",
                 breaks = breaks,

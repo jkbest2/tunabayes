@@ -39,7 +39,7 @@ post_summaries <- all_summaries %>%
 
 nr <- nrow(post_summaries)
 
-extract_mgt <- function(lst) {
+extract_biomass <- function(lst) {
   idx <- grepl("Biomass.*", names(lst))
   lst[idx]
 }

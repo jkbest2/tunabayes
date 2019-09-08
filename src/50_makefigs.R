@@ -27,6 +27,9 @@ param_levels <- c("Centered", "Noncentered", "Marginal q",
 param_colors <- wong_colors[c(2, 3, 4, 6, 7, 8)]
 names(param_colors) <- param_levels
 
+## Specify levels of `adapt_delta` used
+ad_vals <- c(seq(0.8, 0.95, 0.05), 0.975, 0.99, 0.999)
+
 ##-Extract relevant information from model fits----------------------------------
 
 ## Load the fits of the models with Pella-Tomlinson dynamics and estimated shape

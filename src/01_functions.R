@@ -48,7 +48,7 @@ init_exF <- function(chain_id) {
        K = rlnorm(1, 5.042905, 1 / sqrt(3.7603664)),
        m = runif(1, 1, 5),
        q = runif(1, 0.15, 0.5),
-       F = runif(n_years, 1, 3),
+       F = rexp(n_years, 1),
        sigma2 = sigma2,
        tau2 = 1 / rgamma(1, 1.708603, rate = 0.008613854),
        catch_cv = rexp(1, 40),

@@ -13,9 +13,15 @@
 ##                 np = np, np_style = np_style, ...)
 ## }
 
+if (.Platform$OS.type == "windows") {
+  default_font <- "sans"
+} else {
+  default_font <- "Arial"
+}
+
 theme_jkb <- function(base_size = 11,
-                      title_family = "Arial",
-                      base_family = "Arial") {
+                      title_family = default_font,
+                      base_family = default_font) {
                       ## title_family = "Rubik",
                       ## base_family = "Montserrat") {
   sizes <- c(8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32)

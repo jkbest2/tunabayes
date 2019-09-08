@@ -65,16 +65,19 @@ $(Schaefer_results): results/Schaefer_fits.Rds\
 	Rscript src/45_Schaefer_summaries.R
 
 # The figures
-# fig1 := figs/fig1_catch_cpue.pdf\
-# 				figs/fig1_catch_cpue.tiff
-# fig2 := figs/fig2_diagplot.svg\
-# 				figs/fig2_diagplot.pdf
-# fig3 := figs/fig3_effplot.pdf\
-# 				figs/fig3_effplot.tiff
-# fig4 := figs/fig4_biopost.pdf\
-# 				figs/fig4_biopost.tiff
-# fig5 := figs/fig5_mgtpost.pdf\
+# figs := figs/fig1_catch_cpue.pdf\
+#         figs/fig1_catch_cpue.tiff\
+#         figs/fig2_diagplot.svg\
+#         figs/fig2_diagplot.pdf\
+#         figs/fig3_effplot.pdf\
+#         figs/fig3_effplot.tiff\
+#         figs/fig4_biopost.pdf\
+#         figs/fig4_biopost.tiff\
+#         figs/fig5_mgtpost.pdf\
 # 				figs/fig5_mgtpost.tiff
+
+# figures: $(figs)
+# 	Rscript -e 'source("src/51_fig1_data.R"); source("src/52_fig2_diagplots.R"); source("src/53_fig3_effplots.R"); source("src/54_fig4_biopost.R"); source("src/55_fig5_mgtpost.R")'
 
 # figures: $(fig1) $(fig2) $(fig3) $(fig4) $(fig5)
 

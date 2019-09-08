@@ -1,9 +1,9 @@
 ## Load required packages
 library(tidyverse)
-# library(gridExtra)
-# library(ggridges)
-# library(ggsci)
-# library(viridis)
+library(gridExtra)
+## library(ggridges)
+## library(ggsci)
+## library(viridis)
 
 ## Source plot specifics
 source("src/02_plotthemes.R")

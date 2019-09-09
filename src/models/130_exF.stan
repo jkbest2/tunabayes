@@ -1,29 +1,21 @@
 functions {
-  // Define a single step forward in time using Pella-Tomlinson dynamics.
-  // Modified here to account for fishing mortality occuring *after* production
-  // each year.
-  real pella_tomlinson(real P0, real r, real K, real m, real F) {
-    real m1;
-    real surplus_prod;
+  // Define a single step forward in time using Pella-Tomlinson dynamics. Uses
+  // dynamics analogous to other non-explicit F models; both fishing *and*
+  // production occur on the previous year's biomass/depletion.
+  real pella_tomlinson(real P0, real r, real m, real F) {
+    real Cp;            // Fraction mortality due to fishing
+    real m1;            // Shape parameter minus 1
+
+    Cp = P0 * exp(-F);
 
     m1 = m - 1;
-    surplus_prod = r / m1 * P0 * (1 - P0 ^ m1);
-
-    // Return the biomass the *isn't* harvested
-    return (P0 + surplus_prod) * (1 - exp(-F));
+    return P0 + P0 * r / m1 * (1 - P0^m1) - Cp;
   }
 
-  // Based on the current biomass, step forward via Pella-Tomlinson dynamics,
-  // then calculate the catch biomass using the fishing mortality rate.
-  real pt_catch(real P0, real r, real K, real m, real F) {
-    real m1;
-    real surplus_prod;
-
-    m1 = m - 1;
-    surplus_prod = r / m1 * P0 * (1 - P0 ^ m1);
-
-    // Return the biomass that *is* harvested
-    return (P0 + surplus_prod) * exp(-F);
+  // Calculate catch biomass based on current biomass, fishing mortality rate,
+  // and carrying capacity.
+  real pt_catch(real P0, real K, real F) {
+    return K * P0 * exp(-F);
   }
 
   // Calculate BMSY
@@ -84,19 +76,12 @@ transformed parameters {
   // Initial depletion and catch. Note that catch occurs *after* production
   // here.
   P_med[1] = 1;
-  // Note that catch predictions from the `pt_catch` function are on the
-  // depletion scale, so it is necessary to multiply by `K` to compare with
-  // observed catches.
-  C_pred[1] = K * pt_catch(P[1], r, K, m, F[1]);
-
+  C_pred[1] = pt_catch(P[1], K, F[1]);
+  // Initial depletion and catch. Note that catch occurs *after* production
+  // here.
   for (t in 2:T) {
-    // Again, catch occurs after production. On the depletion scale we can
-    // multiply by 1 - exp(-F) to get the fraction of biomass that does *not*
-    // experience fishing mortality. Last year's depletion, production, and then
-    // catch determine the median of the current year's depletion.
-    P_med[t] = pella_tomlinson(P[t - 1], r, K, m, F[t]);
-    // And calculate the biomass harvested
-    C_pred[t] = K * pt_catch(P[t - 1], r, K, m, F[t]);
+    P_med[t] = pella_tomlinson(P[t - 1], r, m, F[t - 1]);
+    C_pred[t] = pt_catch(P[t], K, F[t]);
   }
 }
 
@@ -134,7 +119,7 @@ generated quantities {
     Biomass[t] = K * P[t];
   }
   // One-step-ahead projection, including process error
-  P_medfinal = pella_tomlinson(P[T], r, K, m, F[T]);
+  P_medfinal = pella_tomlinson(P[T], r, m, F[T]);
   P_final = lognormal_rng(log(P_medfinal), sigma);
   Biomass[T + 1] = K * P_final;
 

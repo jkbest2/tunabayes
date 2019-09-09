@@ -1,0 +1,109 @@
+---
+title: 'Appendix C: Selected posterior distributions'
+output:
+  word_document:
+    reference_docx: "Appendix_template.docx"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(rstan)
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE,
+                      message = FALSE, warning = FALSE,
+                      fig.width = 6, fig.height = 4)
+
+source("src/50_makefigs.R")
+source("src/03_priorfunctions.R")
+```
+
+# C.1 Pella-Tomlinson shape parameter
+
+```{r}
+fullPT_m <- readRDS("F:/tunabayes/results/2019-09-07/fullPT_fits.Rds") %>%
+  mutate(m_post = map(fit, rstan::extract, pars = "m"),
+         div_count = map_int(fit, get_num_divergent),
+         model_name = factor(model_name, levels = param_levels)) %>%
+  select(model_name, adapt_delta, div_count, m_post)
+```
+
+```{r dpi=300, fig.cap="*Figure C.1* Prior and posterior distributions of $m$ for each parameterization and target acceptance rate. The prior distribution is in black. Fits where no *divergent transitions* were generated are filled. The two dashed lines provide a reference to the other two surplus production models that were used; $m$ corresponding to $F_{MSY}$ of $0.4$ and $2$, the Schaefer model."}
+m_post <- fullPT_m %>% 
+  unnest() %>% 
+  unnest()
+
+m_postnodiv <- m_post %>%
+  filter(div_count == 0)
+
+m_post %>% 
+  ggplot() +#, color = model_name, fill = model_name)) +
+  geom_vline(xintercept = c(pmsy_to_m(0.4), 2),
+             linetype = 2, alpha = 0.2) +
+  geom_density(aes(x = m_post,
+                   color = model_name),
+               alpha = 0.75) +
+  geom_density(aes(x = m_post,
+                   color = model_name,
+                   fill = model_name),
+               data = m_postnodiv,
+               alpha = 0.75) +
+  facet_grid(model_name ~ adapt_delta) +
+  scale_y_continuous(name = "", expand = expand_scale()) +
+  scale_x_continuous(name = expression(m),
+                     breaks = 0:5, limits = c(0, 5),
+                     expand = expand_scale()) +
+  scale_color_manual(values = param_colors,
+                     aesthetics = c("colour", "fill"), guide = FALSE) +
+  stat_function(fun = ~ dlsn(.x, -0.5, 1, 10), color = "black") +
+  theme_jkb(8) +
+  theme(strip.text.y = element_text(size = 6, hjust = 0, angle = 0),
+        strip.text.x = element_text(size = 6, vjust = 0),
+        axis.text.x = element_text(size = 8, vjust = 1),
+        axis.line.x = element_line(size = 0.2),
+        axis.title.y = element_blank(),
+        axis.text = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.margin = margin(b = 5))
+```
+
+```{r dpi=300, fig.cap="*Figure C.2* Prior and posterior distributions of $F_{MSY}$ for each parameterization (row) and target acceptance rate (column). The prior distribution is plotted in black. Fits with no *divergent transitions* are plotted with filled posterior densities. The two dashed lines provide a reference to the other two surplus production models that were used; $F_{MSY} = 0.4$ and $F_{MSY} = 2$, corresponding to the Schaefer model."}
+pmsy_post <- m_post %>%
+  mutate(pmsy = map_dbl(m_post, m_to_pmsy))
+pmsy_postnodiv <- pmsy_post %>%
+  filter(div_count == 0)
+
+pmsy_post %>% 
+  ggplot() +
+  geom_vline(xintercept = c(0.4, 0.5),
+             linetype = 2, alpha = 0.2) +
+  geom_density(aes(x = pmsy,
+                   color = model_name),
+               alpha = 0.75) +
+  geom_density(aes(x = pmsy,
+                   color = model_name,
+                   fill = model_name),
+               data = pmsy_postnodiv,
+               alpha = 0.75) +
+  stat_function(fun = ~ dlsn_pmsy(.x, -0.5, 1, 10), xlim = c(1e-3, 0.999),
+                color = "black") +
+  facet_grid(model_name ~ adapt_delta) +
+  scale_x_continuous(name = expression(F[MSY]),
+                     breaks = seq(0, 1, 0.5),
+                     limits = c(0, 1), expand_scale()) +
+  scale_y_continuous(name = "", expand = expand_scale()) +
+  scale_color_manual(values = param_colors,
+                     aesthetics = c("colour", "fill"), guide = FALSE) +
+  theme_jkb(8) +
+  theme(strip.text.y = element_text(size = 6, hjust = 0, angle = 0),
+        strip.text.x = element_text(size = 6, vjust = 0),
+        axis.text.x = element_text(size = 8, vjust = 1),
+        axis.title.y = element_blank(),
+        axis.text = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.margin = margin(b = 5))
+```
+
+Both *Fig. C.1* and *Fig. C.2* show that the prior on $m$ was updated by the data. The posteriors appear consistent across the *centered*, *marginal q*, and *noncentered* parameterizations, though the latter did not produce a fit with no *divergent transitions*. The two *explicit F* parameterizations show a rather different posterior, with the *explicit F* more concentrated and somewhat lower the the first three. The posterior fit by the *explicit F marg q* parameterization on the other hand matches the prior very closely, indicating that the data provided no information about this parameter. Given the number of *divergent transitions* associated with these fits, they should not be trusted over the *centered* and *marginal q* parameterizations at higher target acceptance rates.

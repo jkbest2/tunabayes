@@ -1,6 +1,5 @@
 ---
-title: 'Appendix B: Selected prior distributions'
-author: "John Best"
+title: 'Supplementary Appendix B: Selected prior distributions'
 output:
   word_document:
     reference_docx: "Appendix_template.docx"
@@ -37,6 +36,7 @@ The location ($\xi$), scale ($\omega$), and shape ($\alpha$) parameters of the l
 source("src/03_priorfunctions.R")
 source("src/50_makefigs.R")
 library(tidyverse)
+library(rstan)
 
 ## Log-skew-normal prior on m
 xi <- -0.5       # location
@@ -82,9 +82,9 @@ pmsy_plot <- dfd %>%
 grid.arrange(m_plot, pmsy_plot, nrow = 1)
 ```
 
-The quantiles of $P_{MSY}$ under this prior are
+The quantiles of $m$ and $P_{MSY}$ under this prior are given in *Table B.1*. These quantiles cover a large range of feasible values and include the Fox surplus production model and the two surplus production specifications used here, with $F_{MSY} = 0.4$ and $F_{MSY} = 0.5$ (the Schaefer model).
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, cache=TRUE, fig.width=10}
 n <- 1000000
 
 ## Use random draws to validate pdf calculations
@@ -94,15 +94,15 @@ rpmsy <- vapply(rm, m_to_pmsy, 1.0)
 ## Calculate quantiles
 qtpmsy <- quantile(rpmsy, c(0.025, 0.05, 0.1, 0.25, 0.5,
                             0.75, 0.9, 0.95, 0.975))
-qtpmsy
-```
-
-and the quantiles of $m$ are
-
-```{r echo=FALSE}
 qtm <- quantile(rm, c(0.025, 0.05, 0.1, 0.25, 0.5,
-                      0.75, 0.9, 0.95, 0.975))
-qtm
+                      0.75, 0.9, 0.95, 0.975)) 
+qt <- bind_rows(qtm, qtpmsy) %>%
+  mutate(` ` = c("$m$", "$P_{MSY}$")) %>%
+  select(` `, everything())
+tab <- flextable::flextable(qt, theme_fun = flextable::theme_alafoli)
+flextable::colformat_num(tab, col_keys = names(qtm), digits = 2)
+# knitr::kable(qt, digits = 2, padding = 2, format = "markdown",
+#              caption = "*Table B.1* Quantiles of the Pella-Tomlinson shape parameter $m$ and depletion at MSY, $P_{MSY}$.")
 ```
 
 # B.2 Catch observation variance

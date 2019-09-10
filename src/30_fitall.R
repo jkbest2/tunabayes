@@ -23,8 +23,8 @@ tuna_data$catch_cv_prior_rate <- cv_prior_rate(0.05, 0.9)
 ## Set the specifications for each chain. 30,000 iterations per chain with 5,000
 ## warmup iterations and 4 chains, so 100,000 post-warmup samples. Probably
 ## overkill, but better for detecting any sneaky divergent transitions.
-chain_spec <- list(n_iter = 30e3,
-                   n_warm = 5e3,
+chain_spec <- list(n_iter = 35e3,
+                   n_warm = 10e3,
                    n_chain = 4L)
 
 ## Choose a range of `adapt_delta` values (default is 0.8)

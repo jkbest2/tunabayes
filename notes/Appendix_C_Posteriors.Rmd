@@ -202,45 +202,6 @@ m_post %>%
         plot.margin = margin(b = 5))
 ```
 
-```{r fig.cap="*Figure C.3* Prior and posterior distributions of $F_{MSY}$ for each parameterization (row) and target acceptance rate (column). The prior distribution is plotted in black. Fits with no *divergent transitions* are plotted with filled posterior densities. The two dashed lines provide a reference to the other two surplus production models that were used; $F_{MSY} = 0.4$ and $F_{MSY} = 2$, corresponding to the Schaefer model."}
-pmsy_post <- m_post %>%
-  real F_prior;                    // Rate on exponential prior of each F
-  mutate(pmsy = map_dbl(m_post, m_to_pmsy))
-pmsy_postnodiv <- pmsy_post %>%
-  filter(div_count == 0)
-
-pmsy_post %>% 
-  ggplot() +
-  geom_vline(xintercept = c(0.4, 0.5),
-             linetype = 2, alpha = 0.2) +
-  geom_density(aes(x = pmsy,
-                   color = model_name),
-               alpha = 0.75) +
-  geom_density(aes(x = pmsy,
-                   color = model_name,
-                   fill = model_name),
-               data = pmsy_postnodiv,
-               alpha = 0.75) +
-  stat_function(fun = ~ dlsn_pmsy(.x, -0.5, 1, 10), xlim = c(1e-3, 0.999),
-                color = "black") +
-  facet_grid(model_name ~ adapt_delta) +
-  scale_x_continuous(name = expression(F[MSY]),
-                     breaks = seq(0, 1, 0.5),
-                     limits = c(0, 1), expand_scale()) +
-  scale_y_continuous(name = "", expand = expand_scale()) +
-  scale_color_manual(values = param_colors,
-                     aesthetics = c("colour", "fill"), guide = FALSE) +
-  theme_jkb(8) +
-  theme(strip.text.y = element_text(size = 6, hjust = 0, angle = 0),
-        strip.text.x = element_text(size = 6, vjust = 0),
-        axis.text.x = element_text(size = 8, vjust = 1),
-        axis.title.y = element_blank(),
-        axis.text = element_blank(),
-        axis.line.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        plot.margin = margin(b = 5))
-```
-
 # C.3 Instantaneous fishing mortality rate
 
 For each surplus production model and parameterization, the fit with the fewest *divergent transitions* and most efficient sampling was chosen. The posterior quantiles are consistent among surplus production models and parameterizations (*Fig. C.4*), though they may not be trustworthy given the number of divergent transitions encountered during fitting.

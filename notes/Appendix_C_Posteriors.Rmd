@@ -3,7 +3,7 @@ title: 'Appendix C: Selected posterior distributions'
 output:
   word_document:
     reference_docx: "Appendix_template.docx"
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -60,10 +60,100 @@ post_summaries <- all_summaries %>%
   arrange(div_total, desc(ess_rate), .by_group = TRUE) %>%
   slice(1)
 ```
-# C.1 Pella-Tomlinson shape parameter
+
+# C.1 Population dynamics and variance parameters
+
+```{r fig.caption="*Figure C.1* Posterior quantiles of maximum growth rate, carrying capacity, catchability, process variance, and observation variance parameters. 50% and 90% credible intervals and medians are shown. Catchability is not included for parameterizations where it was marginalized out."}
+extract_pars <- function(lst) {
+  idx <- grepl("^r$", names(lst)) |
+    grepl("^K$", names(lst)) |
+    grepl("^q$", names(lst)) |
+    grepl("^sigma$", names(lst)) |
+    grepl("^tau$", names(lst))
+  lst[idx]
+}
+
+par_summaries <- post_summaries %>%
+  mutate(par_qtiles = map(post_qtiles, extract_pars),
+         par_stat = map(par_qtiles, names)) %>%
+  unnest(par_stat, par_qtiles) %>%
+  mutate(p025 = map_dbl(par_qtiles, 1),
+         p05 = map_dbl(par_qtiles, 2),
+         p10 = map_dbl(par_qtiles, 3),
+         p25 = map_dbl(par_qtiles, 4),
+         p50 = map_dbl(par_qtiles, 5),
+         p75 = map_dbl(par_qtiles, 6),
+         p90 = map_dbl(par_qtiles, 7),
+         p95 = map_dbl(par_qtiles, 8),
+         p975 = map_dbl(par_qtiles, 9)) %>%
+  ungroup() %>%
+  mutate(divd = div_total == 0,
+         divc = as.numeric(divd),
+         model_name = factor(model_name, levels = rev(param_levels)),
+         par_stat = factor(par_stat, levels = c("r", "K", "q", "sigma", "tau"))) %>%
+  select(dyn, model_name, divd, divc, par_stat,
+         starts_with("p"))
+
+mod_coord <- function(model_name, dyn) {
+  crd <- map_dbl(model_name,
+                 ~ which(.x == rev(param_levels)))
+  ifelse(dyn == "Schaefer", crd, crd - 1)
+}
+
+parpost_plot <- par_summaries %>%
+  ggplot(aes(x = model_name, y = p50,
+             color = model_name,
+             group = model_name,
+             alpha = divc)) +
+  facet_grid(dyn ~ par_stat,
+             scales = "free",
+             switch = "x") +
+  geom_linerange(aes(ymin = p05, ymax = p25),
+                 position = bp_dodge, size = 1) +
+  geom_linerange(aes(ymin = p25, ymax = p75),
+                 position = bp_dodge, size = 2) +
+  geom_linerange(aes(ymin = p75, ymax = p95),
+                 position = bp_dodge, size = 1) +
+  geom_segment(aes(x = mod_coord(model_name, dyn) - 0.25,
+                   xend = mod_coord(model_name, dyn) + 0.25,
+                   y = p50, yend = p50),
+               color = "black") +
+  ## geom_point(position = bp_dodge,
+  ##            size = 2.5, shape = "-",
+  ##            color = "black") +
+  scale_color_manual(values = param_colors) +
+  scale_alpha_continuous(range = c(0.3, 1)) +
+  guides(color = FALSE, #guide_legend(nrow = 1, title = ""),
+         alpha = FALSE) +
+  labs(x = "", y = "", color = "") +
+  ## coord_cartesian(ylim = c(0, 400),
+  ##                 xlim = c(1966.25, 1990.75),
+  ##                 expand = FALSE) +
+  coord_flip() +
+  theme_jkb(base_size = 8) +
+  ## theme(legend.position = "bottom") +
+  theme(plot.margin = margin(t = 1),
+        plot.title = element_blank(),
+        panel.spacing.y = unit(5, "pt"),
+        panel.spacing.x = unit(10, "pt"),
+        axis.ticks.x = element_line(size = 0.2),
+        axis.ticks.y = element_blank(),
+        axis.line = element_line(size = 0.2),
+        strip.text.x = element_text(vjust = 1,
+                                    margin = margin(t = 2)),
+        strip.text.y = element_text(vjust = 0,
+                                    margin = margin()),
+        strip.placement = "outside",
+        legend.position = "bottom",
+        legend.margin = margin(t = -10))
+```
+
+# C.2 Pella-Tomlinson shape parameter
+
+Both *Fig. C.2* and *Fig. C.3* show that the prior on $m$ was updated by the data. The posteriors appear consistent across the *centered*, *marginal q*, and *noncentered* parameterizations, though the latter did not produce a fit with no *divergent transitions*. The two *explicit F* parameterizations show a rather different posterior, with the *explicit F* more concentrated and somewhat lower the the first three. The posterior fit by the *explicit F marg q* parameterization on the other hand matches the prior very closely, indicating that the data provided no information about this parameter. Given the number of *divergent transitions* associated with these fits, they should not be trusted over the *centered* and *marginal q* parameterizations at higher target acceptance rates.
 
 ```{r}
-fullPT_m <- readRDS("F:/tunabayes/results/2019-09-07/fullPT_fits.Rds") %>%
+fullPT_m <- readRDS("results/fullPT_fits.Rds") %>%
   mutate(m_post = map(fit, rstan::extract, pars = "m"),
          div_count = map_int(fit, get_num_divergent),
          model_name = factor(model_name, levels = param_levels)) %>%
@@ -79,7 +169,7 @@ m_postnodiv <- m_post %>%
 rm(fullPT_m)
 ```
 
-```{r fig.cap="*Figure C.1* Prior and posterior distributions of $m$ for each parameterization and target acceptance rate. The prior distribution is in black. Fits where no *divergent transitions* were generated are filled. The two dashed lines provide a reference to the other two surplus production models that were used; $m$ corresponding to $F_{MSY}$ of $0.4$ and $2$, the Schaefer model."}
+```{r fig.cap="*Figure C.2* Prior and posterior distributions of $m$ for each parameterization and target acceptance rate. The prior distribution is in black. Fits where no *divergent transitions* were generated are filled. The two dashed lines provide a reference to the other two surplus production models that were used; $m$ corresponding to $F_{MSY}$ of $0.4$ and $2$, the Schaefer model."}
 m_post %>% 
   ggplot() +#, color = model_name, fill = model_name)) +
   geom_vline(xintercept = c(pmsy_to_m(0.4), 2),
@@ -112,8 +202,9 @@ m_post %>%
         plot.margin = margin(b = 5))
 ```
 
-```{r fig.cap="*Figure C.2* Prior and posterior distributions of $F_{MSY}$ for each parameterization (row) and target acceptance rate (column). The prior distribution is plotted in black. Fits with no *divergent transitions* are plotted with filled posterior densities. The two dashed lines provide a reference to the other two surplus production models that were used; $F_{MSY} = 0.4$ and $F_{MSY} = 2$, corresponding to the Schaefer model."}
+```{r fig.cap="*Figure C.3* Prior and posterior distributions of $F_{MSY}$ for each parameterization (row) and target acceptance rate (column). The prior distribution is plotted in black. Fits with no *divergent transitions* are plotted with filled posterior densities. The two dashed lines provide a reference to the other two surplus production models that were used; $F_{MSY} = 0.4$ and $F_{MSY} = 2$, corresponding to the Schaefer model."}
 pmsy_post <- m_post %>%
+  real F_prior;                    // Rate on exponential prior of each F
   mutate(pmsy = map_dbl(m_post, m_to_pmsy))
 pmsy_postnodiv <- pmsy_post %>%
   filter(div_count == 0)
@@ -150,14 +241,11 @@ pmsy_post %>%
         plot.margin = margin(b = 5))
 ```
 
-Both *Fig. C.1* and *Fig. C.2* show that the prior on $m$ was updated by the data. The posteriors appear consistent across the *centered*, *marginal q*, and *noncentered* parameterizations, though the latter did not produce a fit with no *divergent transitions*. The two *explicit F* parameterizations show a rather different posterior, with the *explicit F* more concentrated and somewhat lower the the first three. The posterior fit by the *explicit F marg q* parameterization on the other hand matches the prior very closely, indicating that the data provided no information about this parameter. Given the number of *divergent transitions* associated with these fits, they should not be trusted over the *centered* and *marginal q* parameterizations at higher target acceptance rates.
+# C.3 Instantaneous fishing mortality rate
 
-\newpage
-# C.2 Instantaneous fishing mortality rate
+For each surplus production model and parameterization, the fit with the fewest *divergent transitions* and most efficient sampling was chosen. The posterior quantiles are consistent among surplus production models and parameterizations (*Fig. C.4*), though they may not be trustworthy given the number of divergent transitions encountered during fitting.
 
-For each surplus production model and parameterization, the fit with the fewest *divergent transitions* and most efficient sampling was chosen. The posterior quantiles are consistent among surplus production models and parameterizations (*Fig. C.3*), though they may not be trustworthy given the number of divergent transitions encountered during fitting.
-
-```{r fig.cap="*Figure C.3* Posterior quantiles for instantaneous fishing mortality rate. 90% and 50% credible intervals are shown, as well as medians for each year. All chosen fits include divergent transitions."}
+```{r fig.cap="*Figure C.4* Posterior quantiles for instantaneous fishing mortality rate. 90% and 50% credible intervals are shown, as well as medians for each year. All chosen fits include divergent transitions."}
 extract_F <- function(lst) {
   idx <- grepl("^F\\[", names(lst))
   lst[idx]
@@ -220,9 +308,9 @@ F_summaries %>%
         legend.margin = margin(t = -10))
 ```
   
-A more interpretable value than $F$ is the proportion of biomass removed each year, $\theta_t = \exp(-F_t).$ Posteriors for this quantity (*Fig. C.4*) show a general increase over time of the proportion of biomass removed by fishing. This is not surprising given the generally declining biomass of the stock and relatively constant catches.
+A more interpretable value than $F$ is the proportion of biomass removed each year, $\theta_t = \exp(-F_t).$ Posteriors for this quantity (*Fig. C.5*) show a general increase over time of the proportion of biomass removed by fishing. This is not surprising given the generally declining biomass of the stock and relatively constant catches.
 
-```{r fig.cap="*Figure C.4* Posterior quantiles for proportion of biomass removed each year. 90% and 50% credible intervals are shown, as well as medians for each year. All chosen fits include divergent transitions."}
+```{r fig.cap="*Figure C.5* Posterior quantiles for proportion of biomass removed each year. 90% and 50% credible intervals are shown, as well as medians for each year. All chosen fits include divergent transitions."}
 F_summaries %>%
   mutate(p05 = exp(-p05),
          p25 = exp(-p25),
@@ -249,8 +337,9 @@ F_summaries %>%
   labs(x = "Year",
        y = "Instantaneous fishing mortality rate",
        color = "Parameterization") +
-  coord_cartesian(ylim = c(0, 0.5),
-                  expand = FALSE) +
+  ## coord_cartesian(ylim = c(0, 0.5),
+  ##                 expand = FALSE) +
+  scale_y_continuous(limits = c(0.0, NA), expand = expand_scale()) +
   theme_jkb(base_size = 8) +
   theme(legend.position = "bottom") +
   theme(plot.margin = margin(t = 3, l = 1, r = 2),
@@ -264,12 +353,11 @@ F_summaries %>%
         legend.margin = margin(t = -10))
 ```
 
-\newpage
-# C.3 Unobserved true catch
+# C.4 Unobserved true catch
 
-Unsurprisingly, posteriors of the unobserved true catches are close to the observed catches (*Fig. C.5*). Differences in variation among years are due to the different magnitudes of the catches and the log normal observation likelihood.
+Unsurprisingly, posteriors of the unobserved true catches are close to the observed catches (*Fig. C.6*). Differences in variation among years are due to the different magnitudes of the catches and the log normal observation likelihood.
 
-```{r fig.cap="*Figure C.5* Posterior quantiles of differences in unobserved true catch and observed catch. 90% and 50% credible intervals are shown, along with medians. All chosen fits include divergent transitions."}
+```{r fig.cap="*Figure C.6* Posterior quantiles of differences in unobserved true catch and observed catch. 90% and 50% credible intervals are shown, along with medians. All chosen fits include divergent transitions."}
 obs_df <- tibble(year = 1967:1989,
                  C = tuna_data$C)
 
@@ -293,7 +381,6 @@ C_pred_summaries <- post_summaries %>%
          p90 = map_dbl(C_pred_qtiles, 7) - C,
          p95 = map_dbl(C_pred_qtiles, 8) - C,
          p975 = map_dbl(C_pred_qtiles, 9) - C) %>%
-  
   mutate(divd = div_total == 0,
          divc = as.numeric(divd)) %>%
   select(dyn, model_name, divd, divc, year,
@@ -320,8 +407,8 @@ C_pred_summaries %>%
   labs(x = "Year",
        y = "Differences in unobserved and observed catch (1000t)",
        color = "Parameterization") +
-  coord_cartesian(#ylim = c(0, 0.5),
-                  expand = FALSE) +
+  ## coord_cartesian(#ylim = c(0, 0.5),
+  ##                 expand = FALSE) +
   theme_jkb(base_size = 8) +
   theme(legend.position = "bottom") +
   theme(plot.margin = margin(t = 3, l = 1, r = 2),
@@ -335,10 +422,9 @@ C_pred_summaries %>%
         legend.margin = margin(t = -10))
 ```
 
-\newpage
-# C.4 Coefficient of variation of catch observations
+# C.5 Coefficient of variation of catch observations
 
-Given that there was little to no information about magnitudes of catch errors in the data used here, it is not surprising that the posterior distribution of the coefficient of variation of the catch observations is almost exactly the same as the exponential prior (*Fig. C.6*).
+Given that there was little to no information about magnitudes of catch errors in the data used here, it is not surprising that the posterior distribution of the coefficient of variation of the catch observations is almost exactly the same as the exponential prior (*Fig. C.7*).
 
 ```{r}
 fullPT_cv <- readRDS("results/fullPT_fits.Rds") %>%
@@ -375,7 +461,7 @@ cv_postnodiv <- cv_post %>%
 rm(fullPT_cv, fixedPT_cv, Schaefer_cv)
 ```
 
-```{r fig.cap="*Figure C.6* Prior (black) and posterior distributions of the coefficient of variation of catch observations. All fits here inclded divergent transitions."}
+```{r fig.cap="*Figure C.7* Prior (black) and posterior distributions of the coefficient of variation of catch observations. All fits here inclded divergent transitions."}
 
 cv_post %>% 
   ggplot() +#, color = model_name, fill = model_name)) +

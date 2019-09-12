@@ -16,6 +16,7 @@ R packages
 - `sn`: Provides skew normal functions
 - `ggridges`: Additional plot types for `ggplot2`
 - `gridExtra`: Combining and manipulating plots from `ggplot2`
+- `flextable` : Output pretty tables to MS Word
 
 ## Reproducing the model fits
 

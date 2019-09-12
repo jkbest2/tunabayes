@@ -108,8 +108,9 @@ flextable::colformat_num(tab, col_keys = names(qtm), digits = 2)
 # B.2 Catch observation variance
 
 For interpretability, a prior was placed on the coefficient of variation of the catch observation error $\xi^*$ rather than directly on the variance parameter $\xi$. Catch observation errors on the order of 1,000 tonnes seem reasonable, leading to considering a coefficient of variation of around 0.05 as the upper end of possible values. Motivated by penalized complexity priors[^4], an exponential prior was placed on $\xi^*$ with rate chosen so that $\Pr(\xi^* < 0.05) = 0.9$, so that
-$$\xi^* \sim \operatorname{Exponential}(46).$$
-This exponential prior also serves to shrink the model towards a simpler model with no error in catch observations.
+$$\xi^* \sim \operatorname{Exponential}(46).$$ This exponential prior also serves to shrink the model towards a simpler model with no error in catch observations.
+
+[^4]: Simpson, D., Rue, H., Riebler, A., Martins, T.G., Sørbye, S.H., 2017. Penalising model component complexity: a principled, practical approach to constructing priors. Stat. Sci. 32, 1–28. https://doi.org/10.1214/16-STS576
 
 # B.3 Instantaneous fishing mortality
 

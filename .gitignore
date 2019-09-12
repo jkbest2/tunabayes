@@ -1,7 +1,8 @@
 figs/
 results/
+*_files/
+*_cache/
 RevisionResponse.*
-
 .Rproj.user
 .Rhistory
 .RData
@@ -33,7 +34,6 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 # End of https://www.gitignore.io/api/r
-
 docs
 *.pdf
 *.ppt*
@@ -42,6 +42,5 @@ docs
 *.rds
 /*.Rdata
 *.xls*
-
 # Ignore .directory files from Dolphin file manager (KDE)
 .directory

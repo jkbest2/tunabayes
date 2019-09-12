@@ -64,9 +64,12 @@ $(Schaefer_results): results/Schaefer_fits.Rds\
 									  src/45_Schaefer_summaries.R
 	Rscript src/45_Schaefer_summaries.R
 
+appendices: notes/Appendix_B_Priors.docx notes/Appendix_C_Posteriors.docx
+
 notes/Appendix_B_Priors.docx: notes/Appendix_B_Priors.Rmd
 	Rscript -e 'rmarkdown::render("notes/Appendix_B_Priors.Rmd", knit_root_dir = getwd())'
 
-notes/Appendix_C_Posteriors.docx: notes/Appendix_C_Posteriors.Rmd
+notes/Appendix_C_Posteriors.docx: notes/Appendix_C_Posteriors.Rmd\
+	$(fullPT_results) $(fixedPT_results) $(Schaefer_results)
 	Rscript -e 'rmarkdown::render("notes/Appendix_C_Posteriors.Rmd", knit_root_dir = getwd())'
 

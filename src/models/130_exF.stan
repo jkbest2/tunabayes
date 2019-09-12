@@ -49,7 +49,7 @@ data {
   vector[T] C;                     // Observed catch
   vector[T] I;                     // CPUE index
   real m;                          // Pella-Tomlinson shape parameter
-  real catch_cv_prior_rate;        // Rate parameter on the exponential prior of
+  real catch_cv_prior;             // Rate parameter on the exponential prior of
                                    // the catch error standard deviation
                                    // parameter
 }
@@ -93,10 +93,12 @@ transformed parameters {
     // Again, catch occurs after production. On the depletion scale we can
     // multiply by 1 - exp(-F) to get the fraction of biomass that does *not*
     // experience fishing mortality. Last year's depletion, production, and then
-    // catch determine the median of the current year's depletion.
-    P_med[t] = pella_tomlinson(P[t - 1], r, K, m, F[t]);
+    // catch determine the median of the current year's depletion. Catch in year
+    // `t` is predicted based on F in year `t`, but `P_med` in year `t` is
+    // predicted based on the *previous year's* F.
+    P_med[t] = pella_tomlinson(P[t - 1], r, K, m, F[t - 1]);
     // And calculate the biomass harvested
-    C_pred[t] = K * pt_catch(P[t - 1], r, K, m, F[t]);
+    C_pred[t] = K * pt_catch(P[t], r, K, m, F[t]);
   }
 }
 
@@ -108,7 +110,7 @@ model {
   sigma2 ~ inv_gamma(3.785518, 0.010223);
   tau2 ~ inv_gamma(1.708603, 0.008613854);
   // Exponential prior on catch observation coefficient of variation
-  catch_cv ~ exponential(catch_cv_prior_rate);
+  catch_cv ~ exponential(catch_cv_prior);
   // Prior on F to give uniform prior on fraction of fishing mortality
   F ~ exponential(1);
 

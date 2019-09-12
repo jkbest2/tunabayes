@@ -1,7 +1,9 @@
 functions {
   // Define a single step forward in time using Pella-Tomlinson dynamics.
   // Modified here to account for fishing mortality occuring *after* production
-  // each year.
+  // each year. This is consistent with the other models in that production
+  // occurs on the previous year's biomass/depletion, and *then* catch is
+  // subtracted.
   real pella_tomlinson(real P0, real r, real K, real m, real F) {
     real m1;
     real surplus_prod;
@@ -55,9 +57,10 @@ data {
   vector[T] I;                     // CPUE index
   vector[3] m_prior;               // Location, scale, and shape of Skew-Normal
                                    // prior on log(m)
-  real catch_cv_prior_rate;        // Rate parameter on the exponential prior of
+  real catch_cv_prior;             // Rate parameter on the exponential prior of
                                    // the catch error standard deviation
                                    // parameter
+  real F_prior;                    // Rate on exponential prior of each F
 }
 
 parameters {
@@ -100,10 +103,12 @@ transformed parameters {
     // Again, catch occurs after production. On the depletion scale we can
     // multiply by 1 - exp(-F) to get the fraction of biomass that does *not*
     // experience fishing mortality. Last year's depletion, production, and then
-    // catch determine the median of the current year's depletion.
-    P_med[t] = pella_tomlinson(P[t - 1], r, K, m, F[t]);
+    // catch determine the median of the current year's depletion. Catch in year
+    // `t` is predicted based on F in year `t`, but `P_med` in year `t` is
+    // predicted based on the *previous year's* F.
+    P_med[t] = pella_tomlinson(P[t - 1], r, K, m, F[t - 1]);
     // And calculate the biomass harvested
-    C_pred[t] = K * pt_catch(P[t - 1], r, K, m, F[t]);
+    C_pred[t] = K * pt_catch(P[t], r, K, m, F[t]);
   }
 }
 
@@ -118,9 +123,10 @@ model {
   log(m) ~ skew_normal(m_prior[1], m_prior[2], m_prior[3]);
   target += -log(m);
   // Exponential prior on catch observation coefficient of variation
-  catch_cv ~ exponential(catch_cv_prior_rate);
-  // Prior on F to give uniform prior on fraction of fishing mortality
-  F ~ exponential(1);
+  catch_cv ~ exponential(catch_cv_prior);
+  // Prior on each F; a value of 1 gives uniform prior on fraction of biomass
+  // removed by fishing
+  F ~ exponential(F_prior);
 
   // State likelihoods
   P ~ lognormal(log(P_med), sigma);

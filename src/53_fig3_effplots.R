@@ -18,10 +18,9 @@ Schaefer_effs <- reshape_effs(Schaefer_diagnostics) %>%
 all_effs <- bind_rows(fullPT_effs,
                        fixedPT_effs,
                        Schaefer_effs) %>%
-  ## mutate(rhat = map(summary, ~ .x$summary[, 10]),
-  ##        max_rhat = map_dbl(rhat, min, na.rm = TRUE),
-  ##        min_rhat = map_dbl(rhat, max, na.rm = TRUE))
-  filter(adapt_delta > 0.75)
+  mutate(rhat = map(summary, ~ .x$summary[, 10]),
+         min_rhat = map_dbl(rhat, min, na.rm = TRUE),
+         max_rhat = map_dbl(rhat, max, na.rm = TRUE))
 
 ## Set breaks manually over orders of magnitude
 breaks <- 10^(-5:5)
@@ -49,8 +48,8 @@ effplot <- all_effs %>%
   scale_y_log10(name = "Effectively independent samples per second",
                 breaks = breaks,
                 labels = breaks,
-                expand = expand_scale(),
-                limits = c(0.007, 1000)) +
+                expand = expand_scale()) +
+  coord_cartesian(y = c(1e-2, 1e3)) +
   facet_wrap(~ dyn) +
   theme_jkb(base_size = 8) +
   theme(plot.margin = margin(l = 1, r = 2),
@@ -61,7 +60,6 @@ effplot <- all_effs %>%
                                     margin = margin(b = 3)),
         legend.position = "bottom",
         legend.margin = margin(t = -10))
-effplot
 
 ## Save a TIFF for Word, and a PDF as a high quality vector image for publication
 ggsave("figs/fig3_effplot.tiff", effplot, width = 6, height = 4)

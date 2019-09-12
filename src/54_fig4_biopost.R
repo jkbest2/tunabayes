@@ -100,7 +100,6 @@ biopost_plot <- bio_summaries %>%
                                     margin = margin(b = 0, l = 3, r = 0)),
         legend.position = "bottom",
         legend.margin = margin(t = -10))
-biopost_plot
 
 ## ggsave("figs/fig4_biopost.png", biopost_plot, width = 6, height = 4)
 ggsave("figs/fig4_biopost.tiff", biopost_plot, width = 6, height = 4)

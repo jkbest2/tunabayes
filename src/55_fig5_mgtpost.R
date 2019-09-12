@@ -118,8 +118,6 @@ mgtpost_plot <- mgt_summaries %>%
         legend.position = "bottom",
         legend.margin = margin(t = -10))
 
-mgtpost_plot
-
 ## ggsave("figs/fig4_biopost.png", biopost_plot, width = 6, height = 4)
 ggsave("figs/fig5_mgtpost.tiff", mgtpost_plot, width = 6, height = 4)
 ggsave("figs/fig5_mgtpost.pdf", mgtpost_plot, device = cairo_pdf,

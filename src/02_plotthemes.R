@@ -1,18 +1,3 @@
-## `bayesplot` package settings and wrapper for parcoord plots
-## color_scheme_set('darkgray')
-## div_style <- parcoord_style_np(div_color = 'green',
-##                                div_size = 0.25,
-##                                div_alpha = 0.4)
-## stanfit_parcoord <- function(stanfit, transform = scale,
-##                              size = 0.25, alpha = 0.1,
-##                              np_style = div_style, ...) {
-##   draws <- as.array(stanfit)
-##   np <- nuts_params(stanfit)
-##   mcmc_parcoord(draws, transform = transform,
-##                 size = size, alpha = alpha,
-##                 np = np, np_style = np_style, ...)
-## }
-
 if (.Platform$OS.type == "windows") {
   default_font <- "sans"
 } else {

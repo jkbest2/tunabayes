@@ -124,9 +124,8 @@ model {
   target += -log(m);
   // Exponential prior on catch observation coefficient of variation
   catch_cv ~ exponential(catch_cv_prior);
-  // Prior on each F; a value of 1 gives uniform prior on fraction of biomass
-  // removed by fishing
-  F ~ exponential(F_prior);
+  // Flat prior on each F; anything else wreaks havoc
+  // F ~ uniform(0, Inf);
 
   // State likelihoods
   P ~ lognormal(log(P_med), sigma);

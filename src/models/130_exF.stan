@@ -111,8 +111,8 @@ model {
   tau2 ~ inv_gamma(1.708603, 0.008613854);
   // Exponential prior on catch observation coefficient of variation
   catch_cv ~ exponential(catch_cv_prior);
-  // Prior on F to give uniform prior on fraction of fishing mortality
-  F ~ exponential(1);
+  // Flat prior on each F; anything else wreaks havoc
+  // F ~ uniform(0, Inf);
 
   // State likelihoods
   P ~ lognormal(log(P_med), sigma);

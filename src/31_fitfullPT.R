@@ -1,10 +1,6 @@
 ## Source common data, adapt_delta values, etc.
 source("src/30_fitall.R")
 
-## Parameterize a fairly uninformative Beta prior on Pmsy, with expectation 0.4.
-## See src/22_PTshapeprior.R for visualizations etc.
-tuna_data$m_prior <- c(-0.5, 1, 10)
-
 ## In order to avoid needing to recompile the model every run, first compile
 ## each model in global scope.
 ## <https://discourse.mc-stan.org/t/stan-recompile-to-avoid-r-from-crashing/2631/2>

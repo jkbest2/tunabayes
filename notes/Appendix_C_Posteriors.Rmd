@@ -13,7 +13,7 @@ library(rstan)
 knitr::opts_chunk$set(echo = FALSE, cache = TRUE,
                       message = FALSE, warning = FALSE,
                       fig.width = 6, fig.height = 4,
-                      dpi = 300)
+                      dpi = 1200)
 
 source("src/01_functions.R")
 source("src/03_priorfunctions.R")
@@ -63,6 +63,8 @@ post_summaries <- all_summaries %>%
 
 # C.1 Population dynamics and variance parameters
 
+Posterior distributions of growth rate, carrying capacity, and the variance parameters are consistent among the *centered*, *noncentered*, *marginal q*, and *constrained P* parameterizations. The two *explicit F* parameterizations are similar to each other. These differences are likely due to the exponential prior on each instantaneous fishing mortality parameter.
+
 ```{r fig.caption="*Figure C.1* Posterior quantiles of maximum growth rate, carrying capacity, catchability, process variance, and observation variance parameters. 50% and 90% credible intervals and medians are shown. Catchability is not included for parameterizations where it was marginalized out."}
 extract_pars <- function(lst) {
   idx <- grepl("^r$", names(lst)) |
@@ -100,7 +102,7 @@ mod_coord <- function(model_name, dyn) {
   ifelse(dyn == "Schaefer", crd, crd - 1)
 }
 
-parpost_plot <- par_summaries %>%
+par_summaries %>%
   ggplot(aes(x = model_name, y = p50,
              color = model_name,
              group = model_name,
@@ -118,20 +120,13 @@ parpost_plot <- par_summaries %>%
                    xend = mod_coord(model_name, dyn) + 0.25,
                    y = p50, yend = p50),
                color = "black") +
-  ## geom_point(position = bp_dodge,
-  ##            size = 2.5, shape = "-",
-  ##            color = "black") +
   scale_color_manual(values = param_colors) +
   scale_alpha_continuous(range = c(0.3, 1)) +
   guides(color = FALSE, #guide_legend(nrow = 1, title = ""),
          alpha = FALSE) +
   labs(x = "", y = "", color = "") +
-  ## coord_cartesian(ylim = c(0, 400),
-  ##                 xlim = c(1966.25, 1990.75),
-  ##                 expand = FALSE) +
   coord_flip() +
   theme_jkb(base_size = 8) +
-  ## theme(legend.position = "bottom") +
   theme(plot.margin = margin(t = 1),
         plot.title = element_blank(),
         panel.spacing.y = unit(5, "pt"),
@@ -268,7 +263,7 @@ F_summaries %>%
         legend.position = "bottom",
         legend.margin = margin(t = -10))
 ```
-  
+
 A more interpretable value than $F$ is the proportion of biomass removed each year, $\theta_t = \exp(-F_t).$ Posteriors for this quantity (*Fig. C.5*) show a general increase over time of the proportion of biomass removed by fishing. This is not surprising given the generally declining biomass of the stock and relatively constant catches.
 
 ```{r fig.cap="*Figure C.5* Posterior quantiles for proportion of biomass removed each year. 90% and 50% credible intervals are shown, as well as medians for each year. All chosen fits include divergent transitions."}
@@ -296,7 +291,7 @@ F_summaries %>%
   guides(color = guide_legend(nrow = 1, title = ""),
          alpha = FALSE) +
   labs(x = "Year",
-       y = "Instantaneous fishing mortality rate",
+       y = "Fraction of biomass removed by fishing",
        color = "Parameterization") +
   ## coord_cartesian(ylim = c(0, 0.5),
   ##                 expand = FALSE) +
@@ -422,7 +417,7 @@ cv_postnodiv <- cv_post %>%
 rm(fullPT_cv, fixedPT_cv, Schaefer_cv)
 ```
 
-```{r fig.cap="*Figure C.7* Prior (black) and posterior distributions of the coefficient of variation of catch observations. All fits here inclded divergent transitions."}
+```{r fig.cap="*Figure C.7* Prior (black) and posterior distributions of the coefficient of variation of catch observations. All fits here included divergent transitions."}
 
 cv_post %>% 
   ggplot() +#, color = model_name, fill = model_name)) +

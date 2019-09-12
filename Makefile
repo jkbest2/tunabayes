@@ -64,65 +64,9 @@ $(Schaefer_results): results/Schaefer_fits.Rds\
 									  src/45_Schaefer_summaries.R
 	Rscript src/45_Schaefer_summaries.R
 
-# The figures
-# figs := figs/fig1_catch_cpue.pdf\
-#         figs/fig1_catch_cpue.tiff\
-#         figs/fig2_diagplot.svg\
-#         figs/fig2_diagplot.pdf\
-#         figs/fig3_effplot.pdf\
-#         figs/fig3_effplot.tiff\
-#         figs/fig4_biopost.pdf\
-#         figs/fig4_biopost.tiff\
-#         figs/fig5_mgtpost.pdf\
-# 				figs/fig5_mgtpost.tiff
+notes/Appendix_B_Priors.docx: notes/Appendix_B_Priors.Rmd
+	Rscript -e 'rmarkdown::render("notes/Appendix_B_Priors.Rmd", knit_root_dir = getwd())'
 
-# figures: $(figs)
-# 	Rscript -e 'source("src/51_fig1_data.R"); source("src/52_fig2_diagplots.R"); source("src/53_fig3_effplots.R"); source("src/54_fig4_biopost.R"); source("src/55_fig5_mgtpost.R")'
+notes/Appendix_C_Posteriors.docx: notes/Appendix_C_Posteriors.Rmd
+	Rscript -e 'rmarkdown::render("notes/Appendix_C_Posteriors.Rmd", knit_root_dir = getwd())'
 
-# figures: $(fig1) $(fig2) $(fig3) $(fig4) $(fig5)
-
-# $(fig1): results\
-# 				 src/50_makefigs.R\
-# 				 src/51_fig1_data.R
-# 	Rscript -e "source('src/51_fig1_data.R')"
-
-# $(fig2): results\
-# 				 src/50_makefigs.R\
-# 				 src/52_fig2_diagplots.R
-# 	Rscript src/52_fig2_diagplots.R
-
-# $(fig3): results\
-# 				 src/50_makefigs.R\
-# 				 src/53_fig3_effplots.R
-# 	Rscript src/53_fig3_effplots.R
-
-# $(fig4): results\
-# 				 src/50_makefigs.R\
-# 				 src/54_fig4_postplots.R
-# 	Rscript src/54_fig4_postplots.R
-
-# $(fig5): results\
-# 				 src/50_makefigs.R\
-# 				 src/55_fig5_mgtposteriors.R
-# 	Rscript src/55_fig5_mgtposteriors.R
-
-# ch4.pdf: notes/ch4.md notes/ch4.bib
-# 	pandoc --filter=pandoc-fignos --filter=pandoc-tablenos --filter=pandoc-eqnos \
-# 	--filter=pandoc-citeproc --bibliography="notes/ch4.bib" \
-# 	--csl=notes/fisheries-research.csl \
-# 	-o notes/ch4.pdf notes/ch4.md
-
-# ch4_draft.pdf: notes/ch4.md notes/ch4.bib
-# 	pandoc --filter=pandoc-fignos --filter=pandoc-tablenos --filter=pandoc-eqnos \
-# 	--filter=pandoc-citeproc --bibliography="notes/ch4.bib" \
-# 	--csl=notes/fisheries-research.csl \
-# 	--variable=classoption:draft \
-# 	--include-in-header=notes/draft_header.tex \
-# 	-o notes/ch4_draft.pdf notes/ch4.md
-
-# ch4.docx: notes/ch4.md notes/ch4.bib
-# 	pandoc --filter=pandoc-fignos --filter=pandoc-tablenos --filter=pandoc-eqnos \
-# 	--filter=pandoc-citeproc --bibliography="notes/ch4.bib" \
-# 	--csl=notes/fisheries-research.csl \
-# 	--reference-doc=notes/ch4_ref.docx \
-# 	-o notes/ch4.docx notes/ch4.md

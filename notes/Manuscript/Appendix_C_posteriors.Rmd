@@ -12,12 +12,54 @@ library(tidyverse)
 library(rstan)
 knitr::opts_chunk$set(echo = FALSE, cache = TRUE,
                       message = FALSE, warning = FALSE,
-                      fig.width = 6, fig.height = 4)
+                      fig.width = 6, fig.height = 4,
+                      dpi = 300)
 
-source("src/50_makefigs.R")
+source("src/01_functions.R")
 source("src/03_priorfunctions.R")
+source("src/10_data.R")
+source("src/50_makefigs.R")
 ```
 
+```{r}
+## Extract summaries of the fits with fewest divergences, breaking ties with
+## sampling efficiency
+fullPT_summaries <- readRDS("results/fullPT_summaries.Rds") %>%
+  mutate(dyn = factor("P-T, estimated m", levels = dyn_levels),
+         model_name = factor(model_name, levels = param_levels)) %>%
+  left_join(readRDS("results/fullPT_diagnostics.Rds"),
+            by = c("model_name", "adapt_delta"))
+
+fixedPT_summaries <- readRDS("results/fixedPT_summaries.Rds") %>%
+  mutate(dyn = factor("P-T, fixed m", levels = dyn_levels),
+         model_name = factor(model_name, levels = param_levels)) %>%
+  left_join(readRDS("results/fixedPT_diagnostics.Rds"),
+            by = c("model_name", "adapt_delta"))
+
+Schaefer_summaries <- readRDS("results/Schaefer_summaries.Rds") %>%
+  mutate(dyn = factor("Schaefer", levels = dyn_levels),
+         model_name = factor(model_name, levels = param_levels)) %>%
+  left_join(readRDS("results/Schaefer_diagnostics.Rds"),
+            by = c("model_name", "adapt_delta"))
+
+all_summaries <- cross_df(list(dyn = factor(dyn_levels,
+                                            levels = dyn_levels),
+                               model_name = factor(param_levels,
+                                                   levels = param_levels)),
+                          .filter = function(dyn, model_name)
+                            model_name == "Constrained P" && grepl("P-T", dyn)) %>%
+  left_join(bind_rows(fullPT_summaries,
+                      fixedPT_summaries,
+                      Schaefer_summaries),
+            by = c("dyn", "model_name")) %>%
+  select(dyn, model_name, adapt_delta, post_qtiles,
+         min_ess, ess_rate, div_total)
+
+post_summaries <- all_summaries %>%
+  group_by(dyn, model_name) %>%
+  arrange(div_total, desc(ess_rate), .by_group = TRUE) %>%
+  slice(1)
+```
 # C.1 Pella-Tomlinson shape parameter
 
 ```{r}
@@ -26,9 +68,7 @@ fullPT_m <- readRDS("F:/tunabayes/results/2019-09-07/fullPT_fits.Rds") %>%
          div_count = map_int(fit, get_num_divergent),
          model_name = factor(model_name, levels = param_levels)) %>%
   select(model_name, adapt_delta, div_count, m_post)
-```
 
-```{r dpi=300, fig.cap="*Figure C.1* Prior and posterior distributions of $m$ for each parameterization and target acceptance rate. The prior distribution is in black. Fits where no *divergent transitions* were generated are filled. The two dashed lines provide a reference to the other two surplus production models that were used; $m$ corresponding to $F_{MSY}$ of $0.4$ and $2$, the Schaefer model."}
 m_post <- fullPT_m %>% 
   unnest() %>% 
   unnest()
@@ -36,6 +76,10 @@ m_post <- fullPT_m %>%
 m_postnodiv <- m_post %>%
   filter(div_count == 0)
 
+rm(fullPT_m)
+```
+
+```{r fig.cap="*Figure C.1* Prior and posterior distributions of $m$ for each parameterization and target acceptance rate. The prior distribution is in black. Fits where no *divergent transitions* were generated are filled. The two dashed lines provide a reference to the other two surplus production models that were used; $m$ corresponding to $F_{MSY}$ of $0.4$ and $2$, the Schaefer model."}
 m_post %>% 
   ggplot() +#, color = model_name, fill = model_name)) +
   geom_vline(xintercept = c(pmsy_to_m(0.4), 2),
@@ -68,7 +112,7 @@ m_post %>%
         plot.margin = margin(b = 5))
 ```
 
-```{r dpi=300, fig.cap="*Figure C.2* Prior and posterior distributions of $F_{MSY}$ for each parameterization (row) and target acceptance rate (column). The prior distribution is plotted in black. Fits with no *divergent transitions* are plotted with filled posterior densities. The two dashed lines provide a reference to the other two surplus production models that were used; $F_{MSY} = 0.4$ and $F_{MSY} = 2$, corresponding to the Schaefer model."}
+```{r fig.cap="*Figure C.2* Prior and posterior distributions of $F_{MSY}$ for each parameterization (row) and target acceptance rate (column). The prior distribution is plotted in black. Fits with no *divergent transitions* are plotted with filled posterior densities. The two dashed lines provide a reference to the other two surplus production models that were used; $F_{MSY} = 0.4$ and $F_{MSY} = 2$, corresponding to the Schaefer model."}
 pmsy_post <- m_post %>%
   mutate(pmsy = map_dbl(m_post, m_to_pmsy))
 pmsy_postnodiv <- pmsy_post %>%
@@ -107,3 +151,259 @@ pmsy_post %>%
 ```
 
 Both *Fig. C.1* and *Fig. C.2* show that the prior on $m$ was updated by the data. The posteriors appear consistent across the *centered*, *marginal q*, and *noncentered* parameterizations, though the latter did not produce a fit with no *divergent transitions*. The two *explicit F* parameterizations show a rather different posterior, with the *explicit F* more concentrated and somewhat lower the the first three. The posterior fit by the *explicit F marg q* parameterization on the other hand matches the prior very closely, indicating that the data provided no information about this parameter. Given the number of *divergent transitions* associated with these fits, they should not be trusted over the *centered* and *marginal q* parameterizations at higher target acceptance rates.
+
+\newpage
+# C.2 Instantaneous fishing mortality rate
+
+For each surplus production model and parameterization, the fit with the fewest *divergent transitions* and most efficient sampling was chosen. The posterior quantiles are consistent among surplus production models and parameterizations (*Fig. C.3*), though they may not be trustworthy given the number of divergent transitions encountered during fitting.
+
+```{r fig.cap="*Figure C.3* Posterior quantiles for instantaneous fishing mortality rate. 90% and 50% credible intervals are shown, as well as medians for each year. All chosen fits include divergent transitions."}
+extract_F <- function(lst) {
+  idx <- grepl("^F\\[", names(lst))
+  lst[idx]
+}
+
+F_summaries <- post_summaries %>%
+  filter(grepl("Explicit F", model_name)) %>%
+  mutate(F_qtiles = map(post_qtiles, extract_F)) %>%
+  unnest(F_qtiles) %>%
+  mutate(year = 1967:1989) %>%
+  mutate(p025 = map_dbl(F_qtiles, 1),
+         p05 = map_dbl(F_qtiles, 2),
+         p10 = map_dbl(F_qtiles, 3),
+         p25 = map_dbl(F_qtiles, 4),
+         p50 = map_dbl(F_qtiles, 5),
+         p75 = map_dbl(F_qtiles, 6),
+         p90 = map_dbl(F_qtiles, 7),
+         p95 = map_dbl(F_qtiles, 8),
+         p975 = map_dbl(F_qtiles, 9)) %>%
+  mutate(divd = div_total == 0,
+         divc = as.numeric(divd)) %>%
+  select(dyn, model_name, divd, divc, year,
+         starts_with("p"))
+
+bp_dodge <- position_dodge(width = 0.75)
+
+F_summaries %>%
+  ggplot(aes(x = year, y = p50,
+             color = model_name,
+             group = model_name)) +
+  facet_grid(dyn ~ .) +
+  geom_linerange(aes(ymin = p05, ymax = p25),
+                 position = bp_dodge, size = 0.5) +
+  geom_linerange(aes(ymin = p25, ymax = p75),
+                 position = bp_dodge, size = 0.75) +
+  geom_linerange(aes(ymin = p75, ymax = p95),
+                 position = bp_dodge, size = 0.5) +
+  geom_point(position = bp_dodge,
+             size = 2.5, shape = "-",
+             color = "black") +
+  geom_hline(yintercept = 0) +
+  scale_color_manual(values = param_colors) +
+  guides(color = guide_legend(nrow = 1, title = ""),
+         alpha = FALSE) +
+  labs(x = "Year",
+       y = "Instantaneous fishing mortality rate",
+       color = "Parameterization") +
+  coord_cartesian(ylim = c(0, 3.25),
+                  expand = FALSE) +
+  theme_jkb(base_size = 8) +
+  theme(legend.position = "bottom") +
+  theme(plot.margin = margin(t = 3, l = 1, r = 2),
+        plot.title = element_blank(),
+        panel.spacing.y = unit(10, "pt"),
+        axis.ticks = element_line(size = 0.2),
+        axis.line = element_line(size = 0.2),
+        strip.text.x = element_text(vjust = 0,
+                                    margin = margin(b = 0, l = 3, r = 0)),
+        legend.position = "bottom",
+        legend.margin = margin(t = -10))
+```
+  
+A more interpretable value than $F$ is the proportion of biomass removed each year, $\theta_t = \exp(-F_t).$ Posteriors for this quantity (*Fig. C.4*) show a general increase over time of the proportion of biomass removed by fishing. This is not surprising given the generally declining biomass of the stock and relatively constant catches.
+
+```{r fig.cap="*Figure C.4* Posterior quantiles for proportion of biomass removed each year. 90% and 50% credible intervals are shown, as well as medians for each year. All chosen fits include divergent transitions."}
+F_summaries %>%
+  mutate(p05 = exp(-p05),
+         p25 = exp(-p25),
+         p50 = exp(-p50),
+         p75 = exp(-p75),
+         p95 = exp(-p95)) %>%
+  ggplot(aes(x = year, y = p50,
+             color = model_name,
+             group = model_name)) +
+  facet_grid(dyn ~ .) +
+  geom_linerange(aes(ymin = p05, ymax = p25),
+                 position = bp_dodge, size = 0.5) +
+  geom_linerange(aes(ymin = p25, ymax = p75),
+                 position = bp_dodge, size = 0.75) +
+  geom_linerange(aes(ymin = p75, ymax = p95),
+                 position = bp_dodge, size = 0.5) +
+  geom_point(position = bp_dodge,
+             size = 2.5, shape = "-",
+             color = "black") +
+  geom_hline(yintercept = 0) +
+  scale_color_manual(values = param_colors) +
+  guides(color = guide_legend(nrow = 1, title = ""),
+         alpha = FALSE) +
+  labs(x = "Year",
+       y = "Instantaneous fishing mortality rate",
+       color = "Parameterization") +
+  coord_cartesian(ylim = c(0, 0.5),
+                  expand = FALSE) +
+  theme_jkb(base_size = 8) +
+  theme(legend.position = "bottom") +
+  theme(plot.margin = margin(t = 3, l = 1, r = 2),
+        plot.title = element_blank(),
+        panel.spacing.y = unit(10, "pt"),
+        axis.ticks = element_line(size = 0.2),
+        axis.line = element_line(size = 0.2),
+        strip.text.x = element_text(vjust = 0,
+                                    margin = margin(b = 0, l = 3, r = 0)),
+        legend.position = "bottom",
+        legend.margin = margin(t = -10))
+```
+
+\newpage
+# C.3 Unobserved true catch
+
+Unsurprisingly, posteriors of the unobserved true catches are close to the observed catches (*Fig. C.5*). Differences in variation among years are due to the different magnitudes of the catches and the log normal observation likelihood.
+
+```{r fig.cap="*Figure C.5* Posterior quantiles of differences in unobserved true catch and observed catch. 90% and 50% credible intervals are shown, along with medians. All chosen fits include divergent transitions."}
+obs_df <- tibble(year = 1967:1989,
+                 C = tuna_data$C)
+
+extract_C_pred <- function(lst) {
+  idx <- grepl("^C_pred", names(lst))
+  lst[idx]
+}
+
+C_pred_summaries <- post_summaries %>%
+  filter(grepl("Explicit F", model_name)) %>%
+  mutate(C_pred_qtiles = map(post_qtiles, extract_C_pred)) %>%
+  unnest(C_pred_qtiles) %>%
+  mutate(year = 1967:1989) %>%
+  left_join(obs_df, by = "year") %>%
+  mutate(p025 = map_dbl(C_pred_qtiles, 1) - C,
+         p05 = map_dbl(C_pred_qtiles, 2) - C,
+         p10 = map_dbl(C_pred_qtiles, 3) - C,
+         p25 = map_dbl(C_pred_qtiles, 4) - C,
+         p50 = map_dbl(C_pred_qtiles, 5) - C,
+         p75 = map_dbl(C_pred_qtiles, 6) - C,
+         p90 = map_dbl(C_pred_qtiles, 7) - C,
+         p95 = map_dbl(C_pred_qtiles, 8) - C,
+         p975 = map_dbl(C_pred_qtiles, 9) - C) %>%
+  
+  mutate(divd = div_total == 0,
+         divc = as.numeric(divd)) %>%
+  select(dyn, model_name, divd, divc, year,
+         starts_with("p"))
+
+C_pred_summaries %>%
+  ggplot(aes(x = year, y = p50,
+             color = model_name,
+             group = model_name)) +
+  facet_grid(dyn ~ .) +
+  geom_linerange(aes(ymin = p05, ymax = p25),
+                 position = bp_dodge, size = 0.5) +
+  geom_linerange(aes(ymin = p25, ymax = p75),
+                 position = bp_dodge, size = 0.75) +
+  geom_linerange(aes(ymin = p75, ymax = p95),
+                 position = bp_dodge, size = 0.5) +
+  geom_point(position = bp_dodge,
+             size = 2.5, shape = "-",
+             color = "black") +
+  geom_hline(yintercept = 0) +
+  scale_color_manual(values = param_colors) +
+  guides(color = guide_legend(nrow = 1, title = ""),
+         alpha = FALSE) +
+  labs(x = "Year",
+       y = "Differences in unobserved and observed catch (1000t)",
+       color = "Parameterization") +
+  coord_cartesian(#ylim = c(0, 0.5),
+                  expand = FALSE) +
+  theme_jkb(base_size = 8) +
+  theme(legend.position = "bottom") +
+  theme(plot.margin = margin(t = 3, l = 1, r = 2),
+        plot.title = element_blank(),
+        panel.spacing.y = unit(10, "pt"),
+        axis.ticks = element_line(size = 0.2),
+        axis.line = element_line(size = 0.2),
+        strip.text.x = element_text(vjust = 0,
+                                    margin = margin(b = 0, l = 3, r = 0)),
+        legend.position = "bottom",
+        legend.margin = margin(t = -10))
+```
+
+\newpage
+# C.4 Coefficient of variation of catch observations
+
+Given that there was little to no information about magnitudes of catch errors in the data used here, it is not surprising that the posterior distribution of the coefficient of variation of the catch observations is almost exactly the same as the exponential prior (*Fig. C.6*).
+
+```{r}
+fullPT_cv <- readRDS("results/fullPT_fits.Rds") %>%
+  filter(grepl("Explicit F", model_name)) %>%
+  mutate(post = map(fit, rstan::extract, pars = "catch_cv"),
+         div_count = map_int(fit, get_num_divergent),
+         model_name = factor(model_name, levels = param_levels),
+         dyn = factor(dyn_levels[1], levels = dyn_levels)) %>%
+  select(model_name, adapt_delta, div_count, post)
+
+fixedPT_cv <- readRDS("results/fixedPT_fits.Rds") %>%
+  filter(grepl("Explicit F", model_name)) %>%
+  mutate(post = map(fit, rstan::extract, pars = "catch_cv"),
+         div_count = map_int(fit, get_num_divergent),
+         model_name = factor(model_name, levels = param_levels),
+         dyn = factor(dyn_levels[2], levels = dyn_levels)) %>%
+  select(model_name, adapt_delta, div_count, post)
+
+Schaefer_cv <- readRDS("results/Schaefer_fits.Rds") %>%
+  filter(grepl("Explicit F", model_name)) %>%
+  mutate(post = map(fit, rstan::extract, pars = "catch_cv"),
+         div_count = map_int(fit, get_num_divergent),
+         model_name = factor(model_name, levels = param_levels),
+         dyn = factor(dyn_levels[3], levels = dyn_levels)) %>%
+  select(model_name, adapt_delta, div_count, post)
+
+cv_post <- bind_rows(fullPT_cv, fixedPT_cv, Schaefer_cv) %>%
+  unnest() %>%
+  unnest()
+
+cv_postnodiv <- cv_post %>%
+  filter(div_count == 0)
+
+rm(fullPT_cv, fixedPT_cv, Schaefer_cv)
+```
+
+```{r fig.cap="*Figure C.6* Prior (black) and posterior distributions of the coefficient of variation of catch observations. All fits here inclded divergent transitions."}
+
+cv_post %>% 
+  ggplot() +#, color = model_name, fill = model_name)) +
+  geom_density(aes(x = post,
+                   color = model_name),
+               alpha = 0.75) +
+  geom_density(aes(x = post,
+                   color = model_name,
+                   fill = model_name),
+               data = cv_postnodiv,
+               alpha = 0.75) +
+  facet_grid(model_name ~ adapt_delta) +
+  scale_y_continuous(name = "", expand = expand_scale()) +
+  scale_x_continuous(name = "Catch observation coefficient of variation",
+                     # breaks = 0:5, limits = c(0, 5),
+                     expand = expand_scale()) +
+  scale_color_manual(values = param_colors,
+                     aesthetics = c("colour", "fill"), guide = FALSE) +
+  stat_function(fun = ~ dexp(.x, cv_prior_rate(0.05, 0.9)), color = "black") +
+  theme_jkb(8) +
+  theme(strip.text.y = element_text(size = 6, hjust = 0, angle = 0),
+        strip.text.x = element_text(size = 6, vjust = 0),
+        axis.text.x = element_text(size = 8, vjust = 1),
+        axis.line.x = element_line(size = 0.2),
+        axis.title.y = element_blank(),
+        axis.text = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.margin = margin(b = 5))
+```
+

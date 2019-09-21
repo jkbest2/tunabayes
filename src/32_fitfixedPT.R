@@ -35,7 +35,7 @@ fixedPT_fits <- cross_df(list(model_name = fixedPT_models$model_name,
                                   iter = chain_spec$n_iter,
                                   warmup = chain_spec$n_warm,
                                   init = ..4,
-                                  control = list(adapt_delta = ..2,
+                                  control = list(adapt_delta = print(..2),
                                                  max_treedepth = max_treedepth))))
 
 saveRDS(fixedPT_fits, "results/fixedPT_fits.Rds")

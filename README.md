@@ -1,6 +1,6 @@
 # Code used in *Parameterizations for Bayesian state-space models*
 
-Status: In review
+Status: Accepted at *Fisheries Research*
 
 ## Prerequisites
 

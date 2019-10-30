@@ -111,8 +111,12 @@ model {
   tau2 ~ inv_gamma(1.708603, 0.008613854);
   // Exponential prior on catch observation coefficient of variation
   catch_cv ~ exponential(catch_cv_prior);
-  // Prior on F to give uniform prior on fraction of fishing mortality
-  F ~ exponential(1);
+  // Prior on F to give uniform prior on harvest (h = K * exp(-F)). This
+  // accounts for the dependence of harvest on carrying capacity in this
+  // parameterization. Need to think about how this changes the prior on K.
+  for (t in 1:T) {
+    target += log(K) - F[t];
+  }
 
   // State likelihoods
   P ~ lognormal(log(P_med), sigma);

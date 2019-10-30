@@ -40,3 +40,12 @@ fixedPT_fits <- cross_df(list(model_name = fixedPT_models$model_name,
 
 saveRDS(fixedPT_fits, "results/fixedPT_fits.Rds")
 
+fit <- sampling(fixedPT_exF,
+                data = tuna_data,
+                chains = chain_spec$n_chain,
+                iter = chain_spec$n_iter,
+                warmup = chain_spec$n_warm,
+                init = init_exF,
+                control = list(adapt_delta = 0.99,
+                               max_treedepth = 20L))
+saveRDS(fit, "results/flatharvest_fit.Rds")

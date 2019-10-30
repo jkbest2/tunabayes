@@ -71,6 +71,8 @@ mod_coord <- function(model_name, dyn) {
   ifelse(dyn == "Schaefer", crd, crd - 1)
 }
 
+bp_dodge <- position_dodge(width = 0.75)
+
 mgtpost_plot <- mgt_summaries %>%
   ggplot(aes(x = model_name, y = p50,
              color = model_name,

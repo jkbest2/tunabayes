@@ -164,7 +164,7 @@ m_postnodiv <- m_post %>%
 rm(fullPT_m)
 ```
 
-```{r fig.cap="*Figure C.2* Prior and posterior distributions of $m$ for each parameterization and target acceptance rate. The prior distribution is in black. Fits where no *divergent transitions* were generated are filled. The two dashed lines provide a reference to the other two surplus production models that were used; $m$ corresponding to $F_{MSY}$ of $0.4$ and $2$, the Schaefer model."}
+```{r fig.cap="*Figure C.2* Prior and posterior distributions of $m$ for each parameterization and target acceptance rate. The prior distribution is in black. Fits where no *divergent transitions* were generated are filled. The two dashed lines provide a reference to the other two surplus production models that were used; $m$ corresponding to $P_{MSY}$ of $0.4$ and $2$, the Schaefer model."}
 m_post %>% 
   ggplot() +#, color = model_name, fill = model_name)) +
   geom_vline(xintercept = c(pmsy_to_m(0.4), 2),

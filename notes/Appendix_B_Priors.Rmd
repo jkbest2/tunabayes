@@ -15,7 +15,7 @@ $$P_t = P_{t-1} + P_{t-1}\frac{r}{m-1}\left(1 - P_{t-1}^{m-1}\right).$$
 The parameter $m$ is known as the shape parameter. It is nonnegative, and encompasses other surplus production model at specific values, namely the Fox surplus production model at $m=1$ and the Schaefer surplus production model at $m=2$. The shape parameter determines the level of depletion where maximum sustainable yield occurs, $P_{MSY}$. The relationship between these is
 $$P_{MSY} = g(m) = m^{-\frac{1}{m-1}}.$$
 
-In order to parameterize a vaguely informative prior on $m$, the implied prior distribution on $P_{MSY}$ was examined. For a given probability density function [PDF] of the prior assigned to $m$, $p_m$, the PDF of $F_{MSY}$, $p_{PMSY}$, is given by
+In order to parameterize a vaguely informative prior on $m$, the implied prior distribution on $P_{MSY}$ was examined. For a given probability density function [PDF] of the prior assigned to $m$, $p_m$, the PDF of $P_{MSY}$, $p_{PMSY}$, is given by
 $$p_{PMSY}(P_{PMSY}) = \left\vert\frac{\textrm{d}}{\textrm{d}\,P_{MSY}} g^{-1}(P_{MSY}) \right\vert f_m(g^{-1}(P_{MSY}))$$
 The inverse of the transformation function is given in terms of the Lambert $W$ function[^1],
 $$g^{-1}(P_{MSY}) = \frac{W(P_{MSY} \log P_{MSY})}{\log P_{MSY}}.$$
@@ -68,7 +68,7 @@ m_plot <- dfd %>%
                      expand = expand_scale()) +
   labs(title = "", x = expression(m), y = "") +
   theme_jkb(12)
-  
+
 pmsy_plot <- dfd %>%
   filter(par == "Pmsy") %>%
   ggplot(aes(x = parval, y = dpar)) +
@@ -76,13 +76,13 @@ pmsy_plot <- dfd %>%
   scale_y_continuous(expand = expand_scale(mult = c(0, 0.05))) +
   scale_x_continuous(breaks = seq(0, 1, 0.1),
                      expand = expand_scale(add = c(0, 1e-5))) +
-  labs(title = "", x = expression(F[MSY]), y = "") +
+  labs(title = "", x = expression(P[MSY]), y = "") +
   theme_jkb(12)
 
 grid.arrange(m_plot, pmsy_plot, nrow = 1)
 ```
 
-The quantiles of $m$ and $P_{MSY}$ under this prior are given in *Table B.1*. These quantiles cover a large range of feasible values and include the Fox surplus production model and the two surplus production specifications used here, with $F_{MSY} = 0.4$ and $F_{MSY} = 0.5$ (the Schaefer model).
+The quantiles of $m$ and $P_{MSY}$ under this prior are given in *Table B.1*. These quantiles cover a large range of feasible values and include the Fox surplus production model and the two surplus production specifications used here, with $P_{MSY} = 0.4$ and $P_{MSY} = 0.5$ (the Schaefer model).
 
 ```{r, echo=FALSE, cache=TRUE, fig.width=10}
 n <- 1000000

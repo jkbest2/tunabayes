@@ -8,29 +8,48 @@ output:
 
 # B.1 Pella-Tomlinson shape parameter
 
-The Pella-Tomlinson surplus production model in terms of depletion $P_t = B_t / K$ where $B_t$ is biomass at time $t$ and $K$ is carrying capacity) is given by
+The Pella-Tomlinson surplus production model in terms of depletion $P_t = B_t /
+K$ where $B_t$ is biomass at time $t$ and $K$ is carrying capacity) is given by
 
 $$P_t = P_{t-1} + P_{t-1}\frac{r}{m-1}\left(1 - P_{t-1}^{m-1}\right).$$
 
-The parameter $m$ is known as the shape parameter. It is nonnegative, and encompasses other surplus production model at specific values, namely the Fox surplus production model at $m=1$ and the Schaefer surplus production model at $m=2$. The shape parameter determines the level of depletion where maximum sustainable yield occurs, $P_{MSY}$. The relationship between these is
-$$P_{MSY} = g(m) = m^{-\frac{1}{m-1}}.$$
+The parameter $m$ is known as the shape parameter. It is nonnegative, and
+encompasses other surplus production model at specific values, namely the Fox
+surplus production model at $m=1$ and the Schaefer surplus production model at
+$m=2$. The shape parameter determines the level of depletion where maximum
+sustainable yield occurs, $P_{MSY}$. The relationship between these is $$P_{MSY}
+= g(m) = m^{-\frac{1}{m-1}}.$$
 
-In order to parameterize a vaguely informative prior on $m$, the implied prior distribution on $P_{MSY}$ was examined. For a given probability density function [PDF] of the prior assigned to $m$, $p_m$, the PDF of $F_{MSY}$, $p_{PMSY}$, is given by
-$$p_{PMSY}(P_{PMSY}) = \left\vert\frac{\textrm{d}}{\textrm{d}\,P_{MSY}} g^{-1}(P_{MSY}) \right\vert f_m(g^{-1}(P_{MSY}))$$
-The inverse of the transformation function is given in terms of the Lambert $W$ function[^1],
-$$g^{-1}(P_{MSY}) = \frac{W(P_{MSY} \log P_{MSY})}{\log P_{MSY}}.$$
-Its first derivative is given by[^2]
-$$\frac{\textrm{d}}{\textrm{d}\,P_{MSY}} g^{-1}(P_{MSY}) = \frac{\left(\log P_{MSY} - W(P_{MSY}\,\log P_{MSY})\right) W(P_{MSY}\,\log P_{MSY})}{P_{MSY}\,\log^2 P_{MSY} \left(W(P_{MSY}\,\log P_{MSY}) + 1\right)}.$$
-In both the inverse function and its derivative, care must be taken to choose the correct branch of the Lambert $W$ function depending on whether $0 < P_{MSY} < \frac{1}{e}$ or $\frac{1}{e} < P_{MSY} < 1$.
+In order to parameterize a vaguely informative prior on $m$, the implied prior
+distribution on $P_{MSY}$ was examined. For a given probability density function
+[PDF] of the prior assigned to $m$, $p_m$, the PDF of $P_{MSY}$, $p_{PMSY}$, is
+given by $$p_{PMSY}(P_{PMSY}) = \left\vert\frac{\textrm{d}}{\textrm{d}\,P_{MSY}}
+g^{-1}(P_{MSY}) \right\vert f_m(g^{-1}(P_{MSY}))$$ The inverse of the
+transformation function is given in terms of the Lambert $W$ function[^1],
+$$g^{-1}(P_{MSY}) = \frac{W(P_{MSY} \log P_{MSY})}{\log P_{MSY}}.$$ Its first
+derivative is given by[^2] $$\frac{\textrm{d}}{\textrm{d}\,P_{MSY}}
+g^{-1}(P_{MSY}) = \frac{\left(\log P_{MSY} - W(P_{MSY}\,\log P_{MSY})\right)
+W(P_{MSY}\,\log P_{MSY})}{P_{MSY}\,\log^2 P_{MSY} \left(W(P_{MSY}\,\log
+P_{MSY}) + 1\right)}.$$ In both the inverse function and its derivative, care
+must be taken to choose the correct branch of the Lambert $W$ function depending
+on whether $0 < P_{MSY} < \frac{1}{e}$ or $\frac{1}{e} < P_{MSY} < 1$.
 
 [^1]: Wolfram|Alpha. Accessed 2019-08-31. <https://www.wolframalpha.com/input/?i=inverse+m%5E%28-1%2F%28m-1%29%29>
 [^2]: Wolfram|Alpha. Accessed 2019-09-06. <https://www.wolframalpha.com/input/?i=d%2FdP+LambertW%28P+log%28P%29%29%2Flog%28P%29>
 
-Given these, the PDF of $P_{MSY}$ can be computed given the form of the prior distribution on $m$ and that distribution's parameters. Here a skew-normal prior is placed on $\log(m)$. This was chosen to control the right skew in the prior on $P_{MSY}$. Right skew was preferred to reduce the prior density on lower values of $P_{MSY}$, which are associated with unreasonably large population growth rates at low population levels. A median $P_MSY$ of $0.4$ was chosen based on the literature (e.g. Winker et al., 2018[^3]).
+Given these, the PDF of $P_{MSY}$ can be computed given the form of the prior
+distribution on $m$ and that distribution's parameters. Here a skew-normal prior
+is placed on $\log(m)$. This was chosen to control the right skew in the prior
+on $P_{MSY}$. Right skew was preferred to reduce the prior density on lower
+values of $P_{MSY}$, which are associated with unreasonably large population
+growth rates at low population levels. A median $P_MSY$ of $0.4$ was chosen
+based on the literature (e.g. Winker et al., 2018[^3]).
 
 [^3]: Winker, H., Carvalho, F., Kapur, M., 2018. JABBA: Just Another Bayesian Biomass Assessment. Fish. Res. 204, 275–288. https://doi.org/10.1016/j.fishres.2018.03.010)
 
-The location ($\xi$), scale ($\omega$), and shape ($\alpha$) parameters of the log skew normal distribution were chosen to be $-1/2$, $1$, and $10$, respectively. The resulting PDFs can be plotted as
+The location ($\xi$), scale ($\omega$), and shape ($\alpha$) parameters of the
+log skew normal distribution were chosen to be $-1/2$, $1$, and $10$,
+respectively. The resulting PDFs can be plotted as
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 source("src/03_priorfunctions.R")
@@ -82,7 +101,10 @@ pmsy_plot <- dfd %>%
 grid.arrange(m_plot, pmsy_plot, nrow = 1)
 ```
 
-The quantiles of $m$ and $P_{MSY}$ under this prior are given in *Table B.1*. These quantiles cover a large range of feasible values and include the Fox surplus production model and the two surplus production specifications used here, with $F_{MSY} = 0.4$ and $F_{MSY} = 0.5$ (the Schaefer model).
+The quantiles of $m$ and $P_{MSY}$ under this prior are given in *Table B.1*.
+These quantiles cover a large range of feasible values and include the Fox
+surplus production model and the two surplus production specifications used
+here, with $P_{MSY} = 0.4$ and $P_{MSY} = 0.5$ (the Schaefer model).
 
 ```{r, echo=FALSE, cache=TRUE, fig.width=10}
 n <- 1000000
@@ -107,11 +129,25 @@ flextable::colformat_num(tab, col_keys = names(qtm), digits = 2)
 
 # B.2 Catch observation variance
 
-For interpretability, a prior was placed on the coefficient of variation of the catch observation error $\xi^*$ rather than directly on the variance parameter $\xi$. Catch observation errors on the order of 1,000 tonnes seem reasonable, leading to considering a coefficient of variation of around 0.05 as the upper end of possible values. Motivated by penalized complexity priors[^4], an exponential prior was placed on $\xi^*$ with rate chosen so that $\Pr(\xi^* < 0.05) = 0.9$, so that
-$$\xi^* \sim \operatorname{Exponential}(46).$$ This exponential prior also serves to shrink the model towards a simpler model with no error in catch observations.
+For interpretability, a prior was placed on the coefficient of variation of the
+catch observation error $\xi^*$ rather than directly on the variance parameter
+$\xi$. Catch observation errors on the order of 1,000 tonnes seem reasonable,
+leading to considering a coefficient of variation of around 0.05 as the upper
+end of possible values. Motivated by penalized complexity priors[^4], an
+exponential prior was placed on $\xi^*$ with rate chosen so that $\Pr(\xi^* <
+0.05) = 0.9$, so that $$\xi^* \sim \operatorname{Exponential}(46).$$ This
+exponential prior also serves to shrink the model towards a simpler model with
+no error in catch observations.
 
 [^4]: Simpson, D., Rue, H., Riebler, A., Martins, T.G., Sørbye, S.H., 2017. Penalising model component complexity: a principled, practical approach to constructing priors. Stat. Sci. 32, 1–28. https://doi.org/10.1214/16-STS576
 
 # B.3 Instantaneous fishing mortality
 
-With very little prior information on instantaneous fishing mortality for each year, an uninformative prior was specified based on a uniform prior on the proportion of biomass removed by fishing in year $t$, $\theta_t$, which is given by $$\theta_t = h^{-1}(F_t) = \exp(-F_t).$$ Given a prior density on $\theta$ $p_\theta$, the PDF of $F_t$ is $$p_{F}(F_t) = \left\lvert -\exp(-F_t) \right\rvert p_{\theta}(h^{-1}(F_t)).$$ For $$p_\theta(\theta_t) = 1 \quad t=1,\ldots,T,$$ this implies $$F_t \sim \operatorname{Exponential}(1)\quad t=1,\ldots,T.$$
+With very little prior information on instantaneous fishing mortality for each
+year ($F_t < 0$), an uninformative prior was specified based on a uniform prior on the
+proportion of biomass removed by fishing in year $t$, $\theta_t$, which is given
+by $$\theta_t = h^{-1}(F_t) = \exp(F_t).$$ Given a prior density on $\theta$
+$p_\theta$, the PDF of $F_t$ is $$p_{F}(F_t) = \left\lvert -\exp(F_t)
+\right\rvert p_{\theta}(h^{-1}(F_t)).$$ For $$p_\theta(\theta_t) = 1 \quad
+t=1,\ldots,T,$$ this implies $$-F_t \sim \operatorname{Exponential}(1)\quad
+t=1,\ldots,T.$$
